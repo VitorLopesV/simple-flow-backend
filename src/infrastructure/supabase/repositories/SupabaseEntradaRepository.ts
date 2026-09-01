@@ -6,6 +6,7 @@ import type { EntradaFiltro, EntradaRepository } from '../../../domain/repositor
 import type { ID, Paginated, Periodo } from '../../../shared/types/common'
 import { faixaDaPagina, montarPaginado } from '../../../shared/utils/paginacao'
 import { limitesDoMes, mesAnterior } from '../../../shared/utils/periodo'
+import { chaveDaSerieDoItem, projetarRecorrencias } from '../../../shared/utils/recorrencia'
 import type { Database } from '../database.types'
 
 type EntradaRow = Database['public']['Tables']['entradas']['Row']
@@ -42,54 +43,64 @@ function paraLinha(payload: EntradaPayload) {
 export class SupabaseEntradaRepository implements EntradaRepository {
   constructor(private readonly supabase: SupabaseClient<Database>) {}
 
-  async listar(userId: ID, filtro: EntradaFiltro): Promise<Paginated<Entrada>> {
-    const { inicio, fim } = limitesDoMes(filtro.periodo)
-    const [de, ate] = faixaDaPagina(filtro.page, filtro.pageSize)
-
-    let query = this.supabase
-      .from('entradas')
-      .select('*', { count: 'exact' })
-      .eq('user_id', userId)
-      .gte('data', inicio)
-      .lte('data', fim)
-      .order('data', { ascending: false })
-      .range(de, ate)
-
-    if (filtro.categoriaId) query = query.eq('categoria_id', filtro.categoriaId)
-    if (filtro.busca) query = query.or(`descricao.ilike.%${filtro.busca}%,observacao.ilike.%${filtro.busca}%`)
-
-    const { data, count, error } = await query
-    if (error) throw error
-
-    return montarPaginado(data.map(paraEntrada), filtro.page, filtro.pageSize, count ?? 0)
-  }
-
-  async resumo(userId: ID, periodo: Periodo): Promise<EntradaResumo> {
+  /**
+   * Entradas reais do período + projeção das séries recorrentes que ainda não têm
+   * ocorrência própria nesse mês (ver `projetarRecorrencias`). Busca todas as linhas
+   * do período (sem filtro de categoria/busca) porque a projeção precisa saber, sem
+   * ambiguidade, quais séries já foram lançadas de fato — o filtro do chamador é
+   * aplicado depois, sobre o conjunto já combinado.
+   */
+  private async comProjecao(userId: ID, periodo: Periodo): Promise<Entrada[]> {
     const { inicio, fim } = limitesDoMes(periodo)
-    const anterior = limitesDoMes(mesAnterior(periodo))
 
-    const [doPeriodo, doMesAnterior, categorias] = await Promise.all([
-      this.supabase.from('entradas').select('valor, categoria_id').eq('user_id', userId).gte('data', inicio).lte('data', fim),
-      this.supabase
-        .from('entradas')
-        .select('valor')
-        .eq('user_id', userId)
-        .gte('data', anterior.inicio)
-        .lte('data', anterior.fim),
-      this.supabase.from('categorias').select('id, nome, cor'),
+    const [doPeriodo, candidatas] = await Promise.all([
+      this.supabase.from('entradas').select('*').eq('user_id', userId).gte('data', inicio).lte('data', fim),
+      this.supabase.from('entradas').select('*').eq('user_id', userId).eq('recorrente', true).lt('data', inicio),
     ])
 
     if (doPeriodo.error) throw doPeriodo.error
-    if (doMesAnterior.error) throw doMesAnterior.error
+    if (candidatas.error) throw candidatas.error
+
+    const reais = doPeriodo.data.map(paraEntrada)
+    const chavesRealizadas = new Set(reais.map(chaveDaSerieDoItem))
+    const projetadas = projetarRecorrencias(candidatas.data.map(paraEntrada), chavesRealizadas, periodo)
+
+    return [...reais, ...projetadas].sort((a, b) => b.data.localeCompare(a.data))
+  }
+
+  async listar(userId: ID, filtro: EntradaFiltro): Promise<Paginated<Entrada>> {
+    const todas = await this.comProjecao(userId, filtro.periodo)
+    const busca = filtro.busca?.toLocaleLowerCase()
+
+    const filtradas = todas
+      .filter((entrada) => !filtro.categoriaId || entrada.categoriaId === filtro.categoriaId)
+      .filter(
+        (entrada) =>
+          !busca ||
+          entrada.descricao.toLocaleLowerCase().includes(busca) ||
+          (entrada.observacao ?? '').toLocaleLowerCase().includes(busca),
+      )
+
+    const [de, ate] = faixaDaPagina(filtro.page, filtro.pageSize)
+    return montarPaginado(filtradas.slice(de, ate + 1), filtro.page, filtro.pageSize, filtradas.length)
+  }
+
+  async resumo(userId: ID, periodo: Periodo): Promise<EntradaResumo> {
+    const [doPeriodo, doMesAnterior, categorias] = await Promise.all([
+      this.comProjecao(userId, periodo),
+      this.comProjecao(userId, mesAnterior(periodo)),
+      this.supabase.from('categorias').select('id, nome, cor'),
+    ])
+
     if (categorias.error) throw categorias.error
 
     const categoriaPorId = new Map(categorias.data.map((categoria) => [categoria.id, categoria]))
-    const total = doPeriodo.data.reduce((soma, linha) => soma + Number(linha.valor), 0)
-    const totalMesAnterior = doMesAnterior.data.reduce((soma, linha) => soma + Number(linha.valor), 0)
+    const total = doPeriodo.reduce((soma, entrada) => soma + entrada.valor, 0)
+    const totalMesAnterior = doMesAnterior.reduce((soma, entrada) => soma + entrada.valor, 0)
 
     const agrupado = new Map<string, number>()
-    for (const linha of doPeriodo.data) {
-      agrupado.set(linha.categoria_id, (agrupado.get(linha.categoria_id) ?? 0) + Number(linha.valor))
+    for (const entrada of doPeriodo) {
+      agrupado.set(entrada.categoriaId, (agrupado.get(entrada.categoriaId) ?? 0) + entrada.valor)
     }
 
     const porCategoria = [...agrupado.entries()]
@@ -106,8 +117,8 @@ export class SupabaseEntradaRepository implements EntradaRepository {
 
     return {
       total,
-      quantidade: doPeriodo.data.length,
-      media: doPeriodo.data.length ? total / doPeriodo.data.length : 0,
+      quantidade: doPeriodo.length,
+      media: doPeriodo.length ? total / doPeriodo.length : 0,
       totalMesAnterior,
       porCategoria,
     }

@@ -21,6 +21,12 @@ export interface Saida {
   atualizadoEm: string
   /** true = gerada automaticamente a partir da fatura de um cartão (não editável/removível diretamente). */
   automatica: boolean
+  /**
+   * Preenchido só nas ocorrências futuras projetadas a partir de um lançamento
+   * recorrente (ver `shared/utils/recorrencia.ts`) — nunca persistido, recalculado
+   * a cada leitura. Editável apenas pelo lançamento original.
+   */
+  origemRecorrenciaId?: ID
 }
 
 export type SaidaPayload = Omit<Saida, 'id' | 'criadoEm' | 'atualizadoEm' | 'automatica'>

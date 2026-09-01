@@ -12,6 +12,12 @@ export interface Entrada {
   observacao?: string | null
   criadoEm: string
   atualizadoEm: string
+  /**
+   * Preenchido só nas ocorrências futuras projetadas a partir de um lançamento
+   * recorrente (ver `shared/utils/recorrencia.ts`) — nunca persistido, recalculado
+   * a cada leitura. Editável apenas pelo lançamento original.
+   */
+  origemRecorrenciaId?: ID
 }
 
 export type EntradaPayload = Omit<Entrada, 'id' | 'criadoEm' | 'atualizadoEm'>
