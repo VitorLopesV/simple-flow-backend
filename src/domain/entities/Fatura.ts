@@ -13,6 +13,13 @@ export interface TransacaoCartao {
   categoriaId: ID
   parcelaAtual: number
   totalParcelas: number
+  recorrente: boolean
+  /**
+   * Preenchido só nas ocorrências futuras projetadas a partir de uma transação
+   * recorrente (ver `shared/utils/recorrencia.ts`) — nunca persistido, recalculado
+   * a cada leitura, e a fatura a que pertence pode ser virtual (ver `Fatura.id`).
+   */
+  origemRecorrenciaId?: ID
 }
 
 export interface Fatura {

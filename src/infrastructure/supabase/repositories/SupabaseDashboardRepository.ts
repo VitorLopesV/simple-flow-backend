@@ -1,37 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import type { Entrada } from '../../../domain/entities/Entrada'
 import type { DashboardResumo, TransacaoRecente } from '../../../domain/entities/Dashboard'
+import type { Saida } from '../../../domain/entities/Saida'
 import type { DashboardRepository } from '../../../domain/repositories/DashboardRepository'
 import type { ID, Periodo, SeriePonto } from '../../../shared/types/common'
-import {
-  dentroDoPeriodo,
-  labelCurtoPeriodo,
-  limitesDoMes,
-  paraCompetencia,
-  ultimosPeriodos,
-} from '../../../shared/utils/periodo'
+import { labelCurtoPeriodo, paraCompetencia, ultimosPeriodos } from '../../../shared/utils/periodo'
 import { calcularVariacao } from '../../../shared/utils/variacao'
 import type { Database } from '../database.types'
+import { SupabaseEntradaRepository } from './SupabaseEntradaRepository'
+import { SupabaseSaidaRepository } from './SupabaseSaidaRepository'
 
 const MESES_NO_GRAFICO = 6
 
-interface Lancamento {
-  id: string
-  descricao: string
-  valor: number
-  data: string
-  categoriaId: string
-}
-
 function somar(registros: { valor: number }[]): number {
   return registros.reduce((soma, item) => soma + item.valor, 0)
-}
-
-function montarSerie(registros: { data: string; valor: number }[], periodos: Periodo[]): SeriePonto[] {
-  return periodos.map((periodo) => ({
-    label: labelCurtoPeriodo(periodo),
-    valor: somar(registros.filter((registro) => dentroDoPeriodo(registro.data, periodo))),
-  }))
 }
 
 /**
@@ -39,27 +22,24 @@ function montarSerie(registros: { data: string; valor: number }[], periodos: Per
  * queries ao próprio usuário; o filtro explícito por userId é defesa em profundidade.
  */
 export class SupabaseDashboardRepository implements DashboardRepository {
-  constructor(private readonly supabase: SupabaseClient<Database>) {}
+  private readonly entradaRepository: SupabaseEntradaRepository
+  private readonly saidaRepository: SupabaseSaidaRepository
+
+  constructor(private readonly supabase: SupabaseClient<Database>) {
+    this.entradaRepository = new SupabaseEntradaRepository(supabase)
+    this.saidaRepository = new SupabaseSaidaRepository(supabase)
+  }
 
   async resumo(userId: ID, periodo: Periodo): Promise<DashboardResumo> {
     const periodos = ultimosPeriodos(periodo, MESES_NO_GRAFICO)
-    const inicioJanela = limitesDoMes(periodos[0]!).inicio
-    const fimJanela = limitesDoMes(periodos[periodos.length - 1]!).fim
     const competencia = paraCompetencia(periodo)
 
-    const [entradasRes, saidasRes, categoriasRes, faturasRes] = await Promise.all([
-      this.supabase
-        .from('entradas')
-        .select('id, descricao, valor, data, categoria_id')
-        .eq('user_id', userId)
-        .gte('data', inicioJanela)
-        .lte('data', fimJanela),
-      this.supabase
-        .from('saidas')
-        .select('id, descricao, valor, data, categoria_id')
-        .eq('user_id', userId)
-        .gte('data', inicioJanela)
-        .lte('data', fimJanela),
+    // Cada mês da janela já vem com a projeção de recorrências aplicada (mesma
+    // lógica de `listar`/`resumo` de entradas/saídas) — assim o gráfico e o card
+    // "no período" nunca divergem do que aparece nas telas de Entradas/Saídas.
+    const [entradasPorPeriodo, saidasPorPeriodo, categoriasRes, faturasRes] = await Promise.all([
+      Promise.all(periodos.map((p) => this.entradaRepository.listarComProjecao(userId, p))),
+      Promise.all(periodos.map((p) => this.saidaRepository.listarComProjecao(userId, p))),
       this.supabase.from('categorias').select('id, nome, cor'),
       this.supabase
         .from('faturas')
@@ -69,38 +49,27 @@ export class SupabaseDashboardRepository implements DashboardRepository {
         .neq('status', 'PAGA'),
     ])
 
-    if (entradasRes.error) throw entradasRes.error
-    if (saidasRes.error) throw saidasRes.error
     if (categoriasRes.error) throw categoriasRes.error
     if (faturasRes.error) throw faturasRes.error
 
-    const paraLancamento = (linha: {
-      id: string
-      descricao: string
-      valor: number
-      data: string
-      categoria_id: string
-    }): Lancamento => ({
-      id: linha.id,
-      descricao: linha.descricao,
-      valor: Number(linha.valor),
-      data: linha.data,
-      categoriaId: linha.categoria_id,
-    })
-
-    const entradas = entradasRes.data.map(paraLancamento)
-    const saidas = saidasRes.data.map(paraLancamento)
     const categoriaPorId = new Map(categoriasRes.data.map((categoria) => [categoria.id, categoria]))
 
-    const entradasDoMes = entradas.filter((entrada) => dentroDoPeriodo(entrada.data, periodo))
-    const saidasDoMes = saidas.filter((saida) => dentroDoPeriodo(saida.data, periodo))
+    const indiceAtual = periodos.length - 1
+    const entradasDoMes: Entrada[] = entradasPorPeriodo[indiceAtual]!
+    const saidasDoMes: Saida[] = saidasPorPeriodo[indiceAtual]!
 
     const totalEntradas = somar(entradasDoMes)
     const totalSaidas = somar(saidasDoMes)
     const totalFaturas = faturasRes.data.reduce((soma, fatura) => soma + Number(fatura.total), 0)
 
-    const serieEntradas = montarSerie(entradas, periodos)
-    const serieSaidas = montarSerie(saidas, periodos)
+    const serieEntradas: SeriePonto[] = periodos.map((p, i) => ({
+      label: labelCurtoPeriodo(p),
+      valor: somar(entradasPorPeriodo[i]!),
+    }))
+    const serieSaidas: SeriePonto[] = periodos.map((p, i) => ({
+      label: labelCurtoPeriodo(p),
+      valor: somar(saidasPorPeriodo[i]!),
+    }))
 
     const agrupado = new Map<string, number>()
     for (const saida of saidasDoMes) {

@@ -40,6 +40,7 @@ export class CriarSaida {
           vencimento,
           parcelaAtual: 1,
           totalParcelas: 1,
+          recorrente: payload.recorrente,
         })
       }
     }

@@ -48,9 +48,10 @@ export class SupabaseEntradaRepository implements EntradaRepository {
    * ocorrência própria nesse mês (ver `projetarRecorrencias`). Busca todas as linhas
    * do período (sem filtro de categoria/busca) porque a projeção precisa saber, sem
    * ambiguidade, quais séries já foram lançadas de fato — o filtro do chamador é
-   * aplicado depois, sobre o conjunto já combinado.
+   * aplicado depois, sobre o conjunto já combinado. Público porque o dashboard
+   * (`SupabaseDashboardRepository`) reusa esta mesma projeção mês a mês.
    */
-  private async comProjecao(userId: ID, periodo: Periodo): Promise<Entrada[]> {
+  async listarComProjecao(userId: ID, periodo: Periodo): Promise<Entrada[]> {
     const { inicio, fim } = limitesDoMes(periodo)
 
     const [doPeriodo, candidatas] = await Promise.all([
@@ -69,7 +70,7 @@ export class SupabaseEntradaRepository implements EntradaRepository {
   }
 
   async listar(userId: ID, filtro: EntradaFiltro): Promise<Paginated<Entrada>> {
-    const todas = await this.comProjecao(userId, filtro.periodo)
+    const todas = await this.listarComProjecao(userId, filtro.periodo)
     const busca = filtro.busca?.toLocaleLowerCase()
 
     const filtradas = todas
@@ -87,8 +88,8 @@ export class SupabaseEntradaRepository implements EntradaRepository {
 
   async resumo(userId: ID, periodo: Periodo): Promise<EntradaResumo> {
     const [doPeriodo, doMesAnterior, categorias] = await Promise.all([
-      this.comProjecao(userId, periodo),
-      this.comProjecao(userId, mesAnterior(periodo)),
+      this.listarComProjecao(userId, periodo),
+      this.listarComProjecao(userId, mesAnterior(periodo)),
       this.supabase.from('categorias').select('id, nome, cor'),
     ])
 

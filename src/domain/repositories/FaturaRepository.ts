@@ -14,6 +14,7 @@ export interface RegistrarTransacaoParams {
   vencimento: string
   parcelaAtual: number
   totalParcelas: number
+  recorrente: boolean
 }
 
 export interface FaturaRepository {

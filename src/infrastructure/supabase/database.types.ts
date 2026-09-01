@@ -273,6 +273,7 @@ export type Database = {
           fatura_id: string
           id: string
           parcela_atual: number
+          recorrente: boolean
           total_parcelas: number
           user_id: string
           valor: number
@@ -285,6 +286,7 @@ export type Database = {
           fatura_id: string
           id?: string
           parcela_atual?: number
+          recorrente?: boolean
           total_parcelas?: number
           user_id: string
           valor: number
@@ -297,6 +299,7 @@ export type Database = {
           fatura_id?: string
           id?: string
           parcela_atual?: number
+          recorrente?: boolean
           total_parcelas?: number
           user_id?: string
           valor?: number

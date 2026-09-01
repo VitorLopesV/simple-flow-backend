@@ -5,11 +5,15 @@ import type { Cartao } from '../../../domain/entities/Cartao'
 import type {
   CartaoComFatura,
   Fatura,
+  FaturaDetalhada,
   FaturaFiltro,
   TransacaoCartao,
 } from '../../../domain/entities/Fatura'
 import type { FaturaRepository, RegistrarTransacaoParams } from '../../../domain/repositories/FaturaRepository'
 import type { ID } from '../../../shared/types/common'
+import { calcularDatasFatura } from '../../../shared/utils/fatura'
+import { limitesDoMes } from '../../../shared/utils/periodo'
+import { chaveDaSerieDoItem, projetarRecorrencias } from '../../../shared/utils/recorrencia'
 import type { Database } from '../database.types'
 
 type CartaoRow = Database['public']['Tables']['cartoes']['Row']
@@ -55,6 +59,7 @@ function paraTransacao(row: TransacaoRow): TransacaoCartao {
     categoriaId: row.categoria_id,
     parcelaAtual: row.parcela_atual,
     totalParcelas: row.total_parcelas,
+    recorrente: row.recorrente,
   }
 }
 
@@ -63,6 +68,7 @@ export class SupabaseFaturaRepository implements FaturaRepository {
 
   async listarComFaturas(userId: ID, filtro: FaturaFiltro): Promise<CartaoComFatura[]> {
     const competencia = `${filtro.periodo.ano}-${String(filtro.periodo.mes).padStart(2, '0')}`
+    const { inicio } = limitesDoMes(filtro.periodo)
 
     let cartoesQuery = this.supabase
       .from('cartoes')
@@ -79,13 +85,18 @@ export class SupabaseFaturaRepository implements FaturaRepository {
 
     const cartaoIds = cartoes.map((cartao) => cartao.id)
 
-    const { data: faturas, error: erroFaturas } = await this.supabase
-      .from('faturas')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('competencia', competencia)
-      .in('cartao_id', cartaoIds)
+    const [{ data: faturas, error: erroFaturas }, { data: candidatasRows, error: erroCandidatas }] = await Promise.all([
+      this.supabase.from('faturas').select('*').eq('user_id', userId).eq('competencia', competencia).in('cartao_id', cartaoIds),
+      this.supabase
+        .from('transacoes_cartao')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('recorrente', true)
+        .in('cartao_id', cartaoIds)
+        .lt('data', inicio),
+    ])
     if (erroFaturas) throw erroFaturas
+    if (erroCandidatas) throw erroCandidatas
 
     const faturaIds = faturas.map((fatura) => fatura.id)
     const { data: transacoes, error: erroTransacoes } =
@@ -94,19 +105,55 @@ export class SupabaseFaturaRepository implements FaturaRepository {
         : { data: [] as TransacaoRow[], error: null }
     if (erroTransacoes) throw erroTransacoes
 
+    const candidatasPorCartao = new Map<ID, TransacaoCartao[]>()
+    for (const row of candidatasRows) {
+      const transacao = paraTransacao(row)
+      const lista = candidatasPorCartao.get(transacao.cartaoId) ?? []
+      lista.push(transacao)
+      candidatasPorCartao.set(transacao.cartaoId, lista)
+    }
+
     return cartoes.map((cartaoRow) => {
       const cartao = paraCartao(cartaoRow)
       const faturaRow = faturas.find((fatura) => fatura.cartao_id === cartao.id)
+      const transacoesReais = faturaRow ? transacoes.filter((t) => t.fatura_id === faturaRow.id).map(paraTransacao) : []
 
-      if (!faturaRow) {
+      // Transações recorrentes anteriores ao mês que ainda não têm ocorrência
+      // própria nesta competência (ver `projetarRecorrencias`) — nunca persistidas.
+      const chavesRealizadas = new Set(transacoesReais.map(chaveDaSerieDoItem))
+      const projetadas = projetarRecorrencias(candidatasPorCartao.get(cartao.id) ?? [], chavesRealizadas, filtro.periodo)
+
+      if (!faturaRow && projetadas.length === 0) {
         return { cartao, fatura: null, usoLimite: 0 }
       }
 
-      const fatura = paraFatura(faturaRow)
-      const transacoesDaFatura = transacoes.filter((t) => t.fatura_id === fatura.id).map(paraTransacao)
+      const totalProjetado = projetadas.reduce((soma, transacao) => soma + transacao.valor, 0)
+
+      // Sem fatura real ainda: sintetiza uma fatura virtual (nunca persistida) só
+      // pra carregar as transações projetadas, com fechamento/vencimento calculados
+      // como se a fatura real fosse aberta agora.
+      const idFaturaAlvo = faturaRow ? faturaRow.id : `fat_virtual_${cartao.id}_${competencia}`
+      const transacoesFinal = [...transacoesReais, ...projetadas].map((transacao) => ({
+        ...transacao,
+        faturaId: idFaturaAlvo,
+      }))
+
+      const fatura: FaturaDetalhada = faturaRow
+        ? { ...paraFatura(faturaRow), total: Number(faturaRow.total) + totalProjetado, transacoes: transacoesFinal }
+        : {
+            id: idFaturaAlvo,
+            cartaoId: cartao.id,
+            competencia,
+            ...calcularDatasFatura(cartao, competencia),
+            total: totalProjetado,
+            status: 'ABERTA',
+            pagoEm: null,
+            transacoes: transacoesFinal,
+          }
+
       const usoLimite = cartao.limite > 0 ? (fatura.total / cartao.limite) * 100 : 0
 
-      return { cartao, fatura: { ...fatura, transacoes: transacoesDaFatura }, usoLimite }
+      return { cartao, fatura, usoLimite }
     })
   }
 
@@ -163,6 +210,7 @@ export class SupabaseFaturaRepository implements FaturaRepository {
       data: params.data,
       parcela_atual: params.parcelaAtual,
       total_parcelas: params.totalParcelas,
+      recorrente: params.recorrente,
     })
     if (erroTransacao) throw erroTransacao
 
