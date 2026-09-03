@@ -5,8 +5,6 @@ import { CriarSaida } from '../../../application/use-cases/saidas/CriarSaida'
 import { ListarSaidas } from '../../../application/use-cases/saidas/ListarSaidas'
 import { RemoverSaida } from '../../../application/use-cases/saidas/RemoverSaida'
 import { ResumoSaidas } from '../../../application/use-cases/saidas/ResumoSaidas'
-import { SupabaseCartaoRepository } from '../../../infrastructure/supabase/repositories/SupabaseCartaoRepository'
-import { SupabaseFaturaRepository } from '../../../infrastructure/supabase/repositories/SupabaseFaturaRepository'
 import { SupabaseSaidaRepository } from '../../../infrastructure/supabase/repositories/SupabaseSaidaRepository'
 import type { SaidaStatus } from '../../../domain/entities/Saida'
 import { paraPeriodo } from '../../../shared/utils/periodo'
@@ -45,12 +43,7 @@ export const saidasController = {
   },
 
   async criar(req: Request, res: Response) {
-    const criarSaida = new CriarSaida(
-      repositorio(req),
-      new SupabaseCartaoRepository(req.supabase!),
-      new SupabaseFaturaRepository(req.supabase!),
-    )
-    const saida = await criarSaida.execute(req.usuario!.id, req.body)
+    const saida = await new CriarSaida(repositorio(req)).execute(req.usuario!.id, req.body)
     res.status(201).json(saida)
   },
 

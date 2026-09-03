@@ -66,7 +66,7 @@ Três clients Supabase distintos — nunca misturar:
 - Query params numéricos: `z.coerce.number()` com `.default(...)`.
 - Datas: validadas por **regex**, não `z.date()` — `YYYY-MM-DD` para datas, `YYYY-MM` para competência.
 - IDs: `z.string().uuid(...)`.
-- Regras condicionais via `.refine()` (ex.: `cartaoId` obrigatório quando `formaPagamento === 'CARTAO_CREDITO'`).
+- Regras condicionais via `.refine()`, quando um campo só faz sentido junto com outro.
 - Mensagens de erro em português, por campo.
 
 ## Convenções de nomenclatura e estilo
@@ -96,7 +96,11 @@ Carregadas via flag nativa do Node `--env-file=.env` (sem `dotenv`), validadas e
 
 ## Regra de negócio não óbvia: fatura de cartão
 
-`CriarSaida`, ao registrar uma saída com `formaPagamento: 'CARTAO_CREDITO'`, cria/atualiza automaticamente a fatura do cartão (via `SupabaseFaturaRepository.registrarTransacao`). `AtualizarSaida`/`RemoverSaida` bloqueiam (`ConflictError`, 409) edição/remoção de saídas com `automatica: true`. Se mexer nesse fluxo, preserve essa proteção.
+Gasto no cartão **não** é uma linha em `saidas`. Ele é lançado direto no cartão (`POST /cartoes/:cartaoId/transacoes` → `transacoes_cartao`, mesmo formato de uma saída, sem forma de pagamento nem situação próprias) e a fatura da competência é criada como `ABERTA` na primeira transação do mês. Por isso `saidaPayloadSchema` **não aceita** `formaPagamento: 'CARTAO_CREDITO'`.
+
+Na aba Saídas o cartão aparece como **uma saída derivada por fatura** (`paraSaidaDeFatura` em `SupabaseSaidaRepository`, alimentada por `FaturaRepository.listarVencendoNoPeriodo`): id `sai_fat_<faturaId>`, data = vencimento, valor lido ao vivo, `automatica: true`. Nunca é persistida — editar/remover só pela aba Cartões. `AtualizarSaida`/`RemoverSaida` continuam bloqueando (`ConflictError`, 409) linhas com `automatica: true`; preserve essa proteção.
+
+O `total` de `faturas` é sempre recalculado como a soma das transações (`recalcularTotal`), nunca por delta.
 
 ## Testes
 

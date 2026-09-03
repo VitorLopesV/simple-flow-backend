@@ -80,7 +80,7 @@ expor ao frontend.
 | DELETE | `/entradas/:id`        | Remove entrada                                                           |
 | GET    | `/saidas`              | Lista paginada (mesmos filtros + `status`)                               |
 | GET    | `/saidas/resumo`       | Totalizadores do período (query: `competencia`)                         |
-| POST   | `/saidas`              | Cria saída (se `formaPagamento=CARTAO_CREDITO`, também gera/atualiza a fatura do cartão) |
+| POST   | `/saidas`              | Cria saída (não aceita `formaPagamento=CARTAO_CREDITO` — gasto no cartão vai em `/cartoes/:cartaoId/transacoes`) |
 | PUT    | `/saidas/:id`          | Atualiza saída (rejeitado com 409 se `automatica: true`)                 |
 | DELETE | `/saidas/:id`          | Remove saída (mesma restrição)                                           |
 | GET    | `/cartoes`             | Lista cartões                                                            |
@@ -88,6 +88,9 @@ expor ao frontend.
 | PUT    | `/cartoes/:id`         | Atualiza cartão                                                          |
 | DELETE | `/cartoes/:id`         | Remove cartão                                                            |
 | GET    | `/cartoes/faturas`     | Cartões + fatura da competência (query: `competencia`, `cartaoId?`)      |
+| POST   | `/cartoes/:cartaoId/transacoes`     | Lança um débito no cartão (mesmo formato de uma saída)      |
+| PUT    | `/cartoes/:cartaoId/transacoes/:id` | Atualiza o débito (pode movê-lo para a fatura de outro mês) |
+| DELETE | `/cartoes/:cartaoId/transacoes/:id` | Remove o débito                                            |
 | PATCH  | `/faturas/:id/pagar`   | Marca fatura como paga                                                   |
 | GET    | `/dashboard/resumo`    | Consolidado do período + série de 6 meses (query: `competencia`)         |
 

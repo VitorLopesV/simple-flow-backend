@@ -269,40 +269,52 @@ export type Database = {
       }
       transacoes_cartao: {
         Row: {
+          atualizado_em: string
           cartao_id: string
           categoria_id: string
+          criado_em: string
           data: string
           descricao: string
           fatura_id: string
           id: string
+          observacao: string | null
           parcela_atual: number
           recorrente: boolean
+          tipo: string
           total_parcelas: number
           user_id: string
           valor: number
         }
         Insert: {
+          atualizado_em?: string
           cartao_id: string
           categoria_id: string
+          criado_em?: string
           data: string
           descricao: string
           fatura_id: string
           id?: string
+          observacao?: string | null
           parcela_atual?: number
           recorrente?: boolean
+          tipo?: string
           total_parcelas?: number
           user_id: string
           valor: number
         }
         Update: {
+          atualizado_em?: string
           cartao_id?: string
           categoria_id?: string
+          criado_em?: string
           data?: string
           descricao?: string
           fatura_id?: string
           id?: string
+          observacao?: string | null
           parcela_atual?: number
           recorrente?: boolean
+          tipo?: string
           total_parcelas?: number
           user_id?: string
           valor?: number
