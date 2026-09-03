@@ -3,6 +3,16 @@ import type { ID } from '../../shared/types/common'
 export type SaidaStatus = 'PAGO' | 'PENDENTE'
 export type FormaPagamento = 'DINHEIRO' | 'PIX' | 'DEBITO' | 'BOLETO' | 'CARTAO_CREDITO'
 
+/** Classificação específica da despesa, independente da categoria (fixa/variável/investimento). */
+export type SaidaTipo =
+  | 'TRANSPORTE'
+  | 'ALIMENTACAO'
+  | 'LAZER'
+  | 'CONTA'
+  | 'POUPANCA'
+  | 'ACOES'
+  | 'OUTROS'
+
 export interface Saida {
   id: ID
   descricao: string
@@ -11,6 +21,7 @@ export interface Saida {
   /** Data de competência no formato ISO `YYYY-MM-DD`. */
   data: string
   categoriaId: ID
+  tipo: SaidaTipo
   status: SaidaStatus
   formaPagamento: FormaPagamento
   /** Preenchido quando `formaPagamento === 'CARTAO_CREDITO'`. */
