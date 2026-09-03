@@ -5,7 +5,7 @@ import type { DashboardResumo, TransacaoRecente } from '../../../domain/entities
 import type { Saida } from '../../../domain/entities/Saida'
 import type { DashboardRepository } from '../../../domain/repositories/DashboardRepository'
 import type { ID, Periodo, SeriePonto } from '../../../shared/types/common'
-import { labelCurtoPeriodo, paraCompetencia, ultimosPeriodos } from '../../../shared/utils/periodo'
+import { labelCurtoPeriodo, ultimosPeriodos } from '../../../shared/utils/periodo'
 import { calcularVariacao } from '../../../shared/utils/variacao'
 import type { Database } from '../database.types'
 import { SupabaseEntradaRepository } from './SupabaseEntradaRepository'
@@ -32,25 +32,17 @@ export class SupabaseDashboardRepository implements DashboardRepository {
 
   async resumo(userId: ID, periodo: Periodo): Promise<DashboardResumo> {
     const periodos = ultimosPeriodos(periodo, MESES_NO_GRAFICO)
-    const competencia = paraCompetencia(periodo)
 
     // Cada mês da janela já vem com a projeção de recorrências aplicada (mesma
     // lógica de `listar`/`resumo` de entradas/saídas) — assim o gráfico e o card
     // "no período" nunca divergem do que aparece nas telas de Entradas/Saídas.
-    const [entradasPorPeriodo, saidasPorPeriodo, categoriasRes, faturasRes] = await Promise.all([
+    const [entradasPorPeriodo, saidasPorPeriodo, categoriasRes] = await Promise.all([
       Promise.all(periodos.map((p) => this.entradaRepository.listarComProjecao(userId, p))),
       Promise.all(periodos.map((p) => this.saidaRepository.listarComProjecao(userId, p))),
       this.supabase.from('categorias').select('id, nome, cor'),
-      this.supabase
-        .from('faturas')
-        .select('total')
-        .eq('user_id', userId)
-        .eq('competencia', competencia)
-        .neq('status', 'PAGA'),
     ])
 
     if (categoriasRes.error) throw categoriasRes.error
-    if (faturasRes.error) throw faturasRes.error
 
     const categoriaPorId = new Map(categoriasRes.data.map((categoria) => [categoria.id, categoria]))
 
@@ -60,7 +52,13 @@ export class SupabaseDashboardRepository implements DashboardRepository {
 
     const totalEntradas = somar(entradasDoMes)
     const totalSaidas = somar(saidasDoMes)
-    const totalFaturas = faturasRes.data.reduce((soma, fatura) => soma + Number(fatura.total), 0)
+    // Quanto das saídas do mês é fatura de cartão. Sai do mesmo conjunto que alimenta
+    // `totalSaidas` (as saídas derivadas de fatura, ver `paraSaidaDeFatura`) — antes era
+    // uma query própria por competência, ou seja, uma definição de mês diferente do resto
+    // do dashboard: a fatura de setembro que vence em outubro contava nos dois meses.
+    const totalFaturas = saidasDoMes
+      .filter((saida) => saida.automatica && saida.formaPagamento === 'CARTAO_CREDITO')
+      .reduce((soma, saida) => soma + saida.valor, 0)
 
     const serieEntradas: SeriePonto[] = periodos.map((p, i) => ({
       label: labelCurtoPeriodo(p),

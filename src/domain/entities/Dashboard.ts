@@ -14,7 +14,10 @@ export interface DashboardResumo {
   totalEntradas: number
   totalSaidas: number
   saldo: number
-  /** Soma das faturas em aberto/fechadas do período. */
+  /**
+   * Quanto de `totalSaidas` é fatura de cartão — recorte do mesmo conjunto, pelo
+   * mês de vencimento da fatura, não pela competência.
+   */
   totalFaturas: number
   variacaoEntradas: number
   variacaoSaidas: number
