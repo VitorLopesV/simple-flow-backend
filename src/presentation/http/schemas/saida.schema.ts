@@ -7,6 +7,11 @@ export const saidaPayloadSchema = z.object({
   categoriaId: z.string().uuid('Categoria inválida.'),
   tipo: z.enum(['TRANSPORTE', 'ALIMENTACAO', 'LAZER', 'CONTA', 'POUPANCA', 'ACOES', 'OUTROS']),
   status: z.enum(['PAGO', 'PENDENTE']),
+  vencimento: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Vencimento inválido, use o formato YYYY-MM-DD.')
+    .optional()
+    .nullable(),
   // Sem CARTAO_CREDITO de propósito: gasto no cartão é lançado no próprio cartão
   // (POST /cartoes/:cartaoId/transacoes) e chega aqui como a fatura, saída derivada.
   formaPagamento: z.enum(['DINHEIRO', 'PIX', 'DEBITO', 'BOLETO'], {

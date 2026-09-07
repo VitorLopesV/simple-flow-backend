@@ -260,6 +260,7 @@ export class SupabaseFaturaRepository implements FaturaRepository {
           vencimento: fatura.vencimento,
           total: Number(fatura.total) + projetadas.reduce((soma, transacao) => soma + transacao.valor, 0),
           paga: fatura.status === 'PAGA',
+          pagoEm: fatura.pago_em,
         }
       })
       .filter((fatura) => fatura.total > 0)

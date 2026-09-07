@@ -15,6 +15,14 @@ export class AtualizarSaida {
       )
     }
 
-    return this.saidaRepository.atualizar(userId, id, payload)
+    // `pagoEm` nunca vem do cliente: passa a valer hoje quando a situação muda para
+    // 'PAGO', mantém a data original se já estava paga (edição não deve "repagar"
+    // a conta) e é limpa quando a situação volta para 'PENDENTE'.
+    const pagoEm =
+      payload.status !== 'PAGO'
+        ? null
+        : (atual.status === 'PAGO' ? atual.pagoEm : null) ?? new Date().toISOString().slice(0, 10)
+
+    return this.saidaRepository.atualizar(userId, id, { ...payload, pagoEm })
   }
 }

@@ -19,6 +19,7 @@ export interface FaturaComoSaida {
   vencimento: string
   total: number
   paga: boolean
+  pagoEm: string | null
 }
 
 export interface DatasDaFatura {

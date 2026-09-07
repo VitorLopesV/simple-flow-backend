@@ -23,6 +23,14 @@ export interface Saida {
   categoriaId: ID
   tipo: SaidaTipo
   status: SaidaStatus
+  /** Data de vencimento da conta, formato ISO `YYYY-MM-DD`. Opcional: nem toda saída tem vencimento marcado. */
+  vencimento?: string | null
+  /**
+   * Data em que a conta foi de fato paga, formato ISO `YYYY-MM-DD`. Nunca vem do
+   * payload do cliente — é definida pela aplicação quando `status` muda para
+   * 'PAGO' e limpa quando volta para 'PENDENTE' (ver `CriarSaida`/`AtualizarSaida`).
+   */
+  pagoEm?: string | null
   formaPagamento: FormaPagamento
   /** Preenchido quando `formaPagamento === 'CARTAO_CREDITO'`. */
   cartaoId?: ID | null

@@ -12,6 +12,8 @@ export class CriarSaida {
   constructor(private readonly saidaRepository: SaidaRepository) {}
 
   execute(userId: ID, payload: SaidaPayload): Promise<Saida> {
-    return this.saidaRepository.criar(userId, payload)
+    // `pagoEm` nunca vem do cliente: é definida aqui a partir da situação escolhida.
+    const pagoEm = payload.status === 'PAGO' ? new Date().toISOString().slice(0, 10) : null
+    return this.saidaRepository.criar(userId, { ...payload, pagoEm })
   }
 }

@@ -210,11 +210,13 @@ export type Database = {
           forma_pagamento: string
           id: string
           observacao: string | null
+          pago_em: string | null
           recorrente: boolean
           status: string
           tipo: string
           user_id: string
           valor: number
+          vencimento: string | null
         }
         Insert: {
           atualizado_em?: string
@@ -227,11 +229,13 @@ export type Database = {
           forma_pagamento: string
           id?: string
           observacao?: string | null
+          pago_em?: string | null
           recorrente?: boolean
           status?: string
           tipo?: string
           user_id: string
           valor: number
+          vencimento?: string | null
         }
         Update: {
           atualizado_em?: string
@@ -244,11 +248,13 @@ export type Database = {
           forma_pagamento?: string
           id?: string
           observacao?: string | null
+          pago_em?: string | null
           recorrente?: boolean
           status?: string
           tipo?: string
           user_id?: string
           valor?: number
+          vencimento?: string | null
         }
         Relationships: [
           {
