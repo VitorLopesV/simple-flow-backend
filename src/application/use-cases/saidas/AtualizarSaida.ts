@@ -1,6 +1,7 @@
 import { ConflictError, NotFoundError } from '../../../domain/errors/DomainError'
 import type { Saida, SaidaPayload } from '../../../domain/entities/Saida'
 import type { SaidaRepository } from '../../../domain/repositories/SaidaRepository'
+import { origemDoIdProjetado } from '../../../shared/utils/recorrencia'
 import type { ID } from '../../../shared/types/common'
 
 export class AtualizarSaida {
@@ -8,7 +9,19 @@ export class AtualizarSaida {
 
   async execute(userId: ID, id: ID, payload: SaidaPayload): Promise<Saida> {
     const atual = await this.saidaRepository.buscarPorId(userId, id)
-    if (!atual) throw new NotFoundError('Saída')
+
+    if (!atual) {
+      // Ocorrência projetada de uma recorrência (id sintético, nunca persistido —
+      // ver `projetarRecorrencias`): editá-la materializa uma linha própria para
+      // este mês, independente das demais, em vez de mudar o lançamento original.
+      const projetado = origemDoIdProjetado(id)
+      const origem = projetado && (await this.saidaRepository.buscarPorId(userId, projetado.origemId))
+      if (!origem?.recorrente) throw new NotFoundError('Saída')
+
+      const pagoEm = payload.status === 'PAGO' ? new Date().toISOString().slice(0, 10) : null
+      return this.saidaRepository.criar(userId, { ...payload, pagoEm })
+    }
+
     if (atual.automatica) {
       throw new ConflictError(
         'Esta saída foi gerada automaticamente pela fatura do cartão e não pode ser editada diretamente.',

@@ -125,6 +125,18 @@ export class SupabaseEntradaRepository implements EntradaRepository {
     }
   }
 
+  async buscarPorId(userId: ID, id: ID): Promise<Entrada | null> {
+    const { data, error } = await this.supabase
+      .from('entradas')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (error) throw error
+    return data ? paraEntrada(data) : null
+  }
+
   async criar(userId: ID, payload: EntradaPayload): Promise<Entrada> {
     const { data, error } = await this.supabase
       .from('entradas')

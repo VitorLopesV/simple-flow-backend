@@ -43,7 +43,9 @@ export interface Saida {
   /**
    * Preenchido só nas ocorrências futuras projetadas a partir de um lançamento
    * recorrente (ver `shared/utils/recorrencia.ts`) — nunca persistido, recalculado
-   * a cada leitura. Editável apenas pelo lançamento original.
+   * a cada leitura. Editar uma dessas ocorrências (ver `AtualizarSaida`) materializa
+   * uma linha própria para aquele mês, independente do original em situação, data
+   * de pagamento e valor.
    */
   origemRecorrenciaId?: ID
 }
