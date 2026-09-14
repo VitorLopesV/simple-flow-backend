@@ -5,7 +5,17 @@ export const saidaPayloadSchema = z.object({
   valor: z.number().positive('O valor deve ser positivo.'),
   data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida, use o formato YYYY-MM-DD.'),
   categoriaId: z.string().uuid('Categoria inválida.'),
-  tipo: z.enum(['TRANSPORTE', 'ALIMENTACAO', 'LAZER', 'CONTA', 'POUPANCA', 'ACOES', 'OUTROS']),
+  tipo: z.enum([
+    'TRANSPORTE',
+    'ALIMENTACAO',
+    'LAZER',
+    'CONTA',
+    'POUPANCA',
+    'ACOES',
+    'EDUCACAO',
+    'COMPRAS',
+    'OUTROS',
+  ]),
   status: z.enum(['PAGO', 'PENDENTE']),
   vencimento: z
     .string()
