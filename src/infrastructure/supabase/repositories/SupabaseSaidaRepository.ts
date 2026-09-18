@@ -112,7 +112,11 @@ export class SupabaseSaidaRepository implements SaidaRepository {
 
     const reais = doPeriodo.data.map(paraSaida)
     const chavesRealizadas = new Set(reais.map(chaveDaSerieDoItem))
-    const projetadas = projetarRecorrencias(candidatas.data.map(paraSaida), chavesRealizadas, periodo)
+    // Projeção nunca herda a situação de pagamento do original: cada mês começa pendente.
+    const projetadas = projetarRecorrencias(candidatas.data.map(paraSaida), chavesRealizadas, periodo, {
+      status: 'PENDENTE',
+      pagoEm: null,
+    })
 
     return [...reais, ...projetadas, ...faturas.map(paraSaidaDeFatura)].sort((a, b) => b.data.localeCompare(a.data))
   }
