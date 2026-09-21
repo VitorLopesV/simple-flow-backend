@@ -19,7 +19,10 @@ export class AtualizarSaida {
       if (!origem?.recorrente) throw new NotFoundError('Saída')
 
       const pagoEm = payload.status === 'PAGO' ? new Date().toISOString().slice(0, 10) : null
-      return this.saidaRepository.criar(userId, { ...payload, pagoEm })
+      // Nome vem sempre do lançamento original, nunca do payload: as ocorrências de
+      // uma série só continuam sendo reconhecidas como a mesma série enquanto
+      // `chaveDaSerie` (descrição + categoria) casar entre elas.
+      return this.saidaRepository.criar(userId, { ...payload, descricao: origem.descricao, pagoEm })
     }
 
     if (atual.automatica) {
@@ -36,6 +39,10 @@ export class AtualizarSaida {
         ? null
         : (atual.status === 'PAGO' ? atual.pagoEm : null) ?? new Date().toISOString().slice(0, 10)
 
-    return this.saidaRepository.atualizar(userId, id, { ...payload, pagoEm })
+    // Nome de uma saída recorrente é fixo entre suas ocorrências (ver acima) — só
+    // aceita mudança de descrição quando a saída deixa de ser recorrente.
+    const descricao = atual.recorrente && payload.recorrente ? atual.descricao : payload.descricao
+
+    return this.saidaRepository.atualizar(userId, id, { ...payload, descricao, pagoEm })
   }
 }
