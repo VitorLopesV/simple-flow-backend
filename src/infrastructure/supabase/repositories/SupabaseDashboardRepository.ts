@@ -77,16 +77,20 @@ export class SupabaseDashboardRepository implements DashboardRepository {
       valor: somarFaturas(saidasPorPeriodo[i]!),
     }))
 
-    const agrupado = new Map<string, number>()
-    for (const saida of saidasDoMes) {
-      agrupado.set(saida.categoriaId, (agrupado.get(saida.categoriaId) ?? 0) + saida.valor)
+    const porCategoria = (registros: { categoriaId: string; valor: number }[]) => {
+      const agrupado = new Map<string, number>()
+      for (const registro of registros) {
+        agrupado.set(registro.categoriaId, (agrupado.get(registro.categoriaId) ?? 0) + registro.valor)
+      }
+      return [...agrupado.entries()]
+        .map(([categoriaId, total]) => {
+          const categoria = categoriaPorId.get(categoriaId)
+          return { nome: categoria?.nome ?? 'Outros', cor: categoria?.cor ?? '#94a3b8', total }
+        })
+        .sort((a, b) => b.total - a.total)
     }
-    const gastosPorCategoria = [...agrupado.entries()]
-      .map(([categoriaId, total]) => {
-        const categoria = categoriaPorId.get(categoriaId)
-        return { nome: categoria?.nome ?? 'Outros', cor: categoria?.cor ?? '#94a3b8', total }
-      })
-      .sort((a, b) => b.total - a.total)
+    const gastosPorCategoria = porCategoria(saidasDoMes)
+    const entradasPorCategoria = porCategoria(entradasDoMes)
 
     const nomeECor = (categoriaId: string) => {
       const categoria = categoriaPorId.get(categoriaId)
@@ -125,6 +129,7 @@ export class SupabaseDashboardRepository implements DashboardRepository {
       serieSaidas,
       serieFaturas,
       gastosPorCategoria,
+      entradasPorCategoria,
       transacoesRecentes,
     }
   }

@@ -235,6 +235,34 @@ describe('SupabaseDashboardRepository', () => {
     })
   })
 
+  describe('entradasPorCategoria', () => {
+    it('agrupa as entradas do mês por categoria, do maior para o menor total', async () => {
+      const { client } = cenario({
+        entradas: [
+          linhaEntrada({ id: 'e1', valor: 5000 }),
+          linhaEntrada({ id: 'e2', descricao: 'Bônus', valor: 1000 }),
+          linhaEntrada({ id: 'e3', descricao: 'Freela', categoria_id: 'cat-sumida', valor: 800 }),
+          linhaEntrada({ id: 'e-jul', data: '2026-07-05', valor: 9999 }),
+        ],
+      })
+
+      const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
+
+      expect(resumo.entradasPorCategoria).toEqual([
+        { nome: 'Salário', cor: '#22c55e', total: 6000 },
+        { nome: 'Outros', cor: '#94a3b8', total: 800 },
+      ])
+    })
+
+    it('volta vazio quando não há entradas no mês', async () => {
+      const { client } = cenario({ saidas: [linhaSaida({ valor: 100 })] })
+
+      const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
+
+      expect(resumo.entradasPorCategoria).toEqual([])
+    })
+  })
+
   describe('transacoesRecentes', () => {
     it('mistura entradas e saídas do mês, mais recentes primeiro, com nome e cor da categoria', async () => {
       const { client } = cenario({
