@@ -125,6 +125,17 @@ describe('errorHandler', () => {
     expect(console.error).not.toHaveBeenCalled()
   })
 
+  it('responde 413 com mensagem clara quando o corpo passa do limite do express.json', () => {
+    const { req, res, next, status, json } = criarContexto()
+    const erro = Object.assign(new Error('request entity too large'), { type: 'entity.too.large', status: 413 })
+
+    errorHandler(erro, req, res, next)
+
+    expect(status).toHaveBeenCalledWith(413)
+    expect(json).toHaveBeenCalledWith({ message: 'Requisição muito grande. A foto deve ter no máximo 500 KB.' })
+    expect(console.error).not.toHaveBeenCalled()
+  })
+
   it('nunca chama next', () => {
     const erros = [new NotFoundError('Saída'), new ZodError([]), new Error('falhou'), 'falhou']
 

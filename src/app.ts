@@ -15,7 +15,9 @@ export function createApp(): Express {
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   )
-  app.use(express.json())
+  // O padrão (100 KB) barraria a foto de perfil (data URL, até 500 KB decodificados ≈
+  // 683 KB em base64) antes de o schema dar uma mensagem clara. Acima disso vira 413.
+  app.use(express.json({ limit: '1mb' }))
 
   app.use('/api', routes)
 

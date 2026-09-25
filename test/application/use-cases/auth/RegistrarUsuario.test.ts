@@ -6,29 +6,31 @@ import { ValidationError } from '../../../../src/domain/errors/DomainError'
 import { criarAuthServiceFake } from '../../../helpers/repositoriosFake'
 
 const SESSAO: SessaoUsuario = {
-  usuario: { id: 'user-1', email: 'ana@exemplo.com', nome: 'Ana' },
+  usuario: { id: 'user-1', email: 'ana@exemplo.com', nome: 'Ana', telefone: '11999998888', fotoUrl: null },
   accessToken: 'access',
   refreshToken: 'refresh',
   expiresIn: 3600,
 }
 
 describe('RegistrarUsuario', () => {
-  it('registra com email, senha e nome e devolve a sessão', async () => {
+  it('registra com email, senha, nome e telefone e devolve a sessão', async () => {
     const authService = criarAuthServiceFake()
     authService.registrar.mockResolvedValue(SESSAO)
 
-    await expect(new RegistrarUsuario(authService).execute('ana@exemplo.com', 'segredo', 'Ana')).resolves.toBe(SESSAO)
+    await expect(
+      new RegistrarUsuario(authService).execute('ana@exemplo.com', 'segredo', 'Ana', '11999998888'),
+    ).resolves.toBe(SESSAO)
 
-    expect(authService.registrar).toHaveBeenCalledWith('ana@exemplo.com', 'segredo', 'Ana')
+    expect(authService.registrar).toHaveBeenCalledWith('ana@exemplo.com', 'segredo', 'Ana', '11999998888')
   })
 
-  it('registra sem nome quando ele não é informado', async () => {
+  it('registra sem nome nem telefone quando eles não são informados', async () => {
     const authService = criarAuthServiceFake()
     authService.registrar.mockResolvedValue(SESSAO)
 
     await new RegistrarUsuario(authService).execute('ana@exemplo.com', 'segredo')
 
-    expect(authService.registrar).toHaveBeenCalledWith('ana@exemplo.com', 'segredo', undefined)
+    expect(authService.registrar).toHaveBeenCalledWith('ana@exemplo.com', 'segredo', undefined, undefined)
   })
 
   it('propaga o ValidationError do serviço (ex.: e-mail já cadastrado)', async () => {

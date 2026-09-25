@@ -52,6 +52,7 @@ Três clients Supabase distintos — nunca misturar:
 - `authMiddleware` extrai `Bearer <token>` do header `Authorization`, popula `req.usuario` e `req.supabase`, lança `UnauthorizedError` (401) se ausente.
 - Toda rota protegida usa `router.use(authMiddleware)` antes das definições de rota — controllers acessam `req.usuario!`/`req.supabase!` com non-null assertion, assumindo isso.
 - Rotas públicas: `POST /auth/registro`, `POST /auth/login`, `POST /auth/refresh`.
+- **Perfil**: nome, telefone e foto têm como fonte a tabela `profiles` (`SupabasePerfilRepository`), não o `user_metadata` — o metadata só alimenta o trigger `handle_new_user` no cadastro e fica desatualizado depois de um `PATCH /auth/me`. Login, registro, refresh e `GET /auth/me` completam o usuário com o perfil; `obterUsuarioPorToken`/`req.usuario` não (evita uma query por requisição). Nunca coloque a foto no metadata: ele vai dentro do JWT. O e-mail não é editável pelo perfil.
 
 ## Tratamento de erros
 
