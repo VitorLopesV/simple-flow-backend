@@ -60,4 +60,5 @@ export interface SaidaResumo {
   totalPendente: number
   totalMesAnterior: number
   porCategoria: { categoriaId: ID; nome: string; cor: string; total: number }[]
+  porTipo: { tipo: SaidaTipo; total: number }[]
 }

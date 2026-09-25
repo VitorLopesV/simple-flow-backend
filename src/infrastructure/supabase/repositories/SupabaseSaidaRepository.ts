@@ -5,6 +5,7 @@ import type { Saida, SaidaPayload, SaidaResumo } from '../../../domain/entities/
 import type { FaturaComoSaida } from '../../../domain/repositories/FaturaRepository'
 import type { SaidaFiltro, SaidaRepository } from '../../../domain/repositories/SaidaRepository'
 import type { ID, Paginated, Periodo } from '../../../shared/types/common'
+import { agruparPorTipo } from '../../../shared/utils/agrupamento'
 import { faixaDaPagina, montarPaginado } from '../../../shared/utils/paginacao'
 import { limitesDoMes, mesAnterior } from '../../../shared/utils/periodo'
 import { chaveDaSerieDoItem, projetarRecorrencias } from '../../../shared/utils/recorrencia'
@@ -175,6 +176,7 @@ export class SupabaseSaidaRepository implements SaidaRepository {
       totalPendente,
       totalMesAnterior,
       porCategoria,
+      porTipo: agruparPorTipo(doPeriodo),
     }
   }
 

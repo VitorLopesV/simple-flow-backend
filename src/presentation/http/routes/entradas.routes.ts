@@ -4,7 +4,7 @@ import { asyncHandler } from '../../../shared/utils/asyncHandler'
 import { entradasController } from '../controllers/entradasController'
 import { authMiddleware } from '../middlewares/authMiddleware'
 import { validate } from '../middlewares/validate'
-import { idParamSchema, resumoQuerySchema } from '../schemas/common.schema'
+import { idOuProjetadoParamSchema, idParamSchema, resumoQuerySchema } from '../schemas/common.schema'
 import { entradaPayloadSchema, listarEntradasQuerySchema } from '../schemas/entrada.schema'
 
 export const entradasRoutes = Router()
@@ -16,7 +16,7 @@ entradasRoutes.get('/', validate(listarEntradasQuerySchema, 'query'), asyncHandl
 entradasRoutes.post('/', validate(entradaPayloadSchema), asyncHandler(entradasController.criar))
 entradasRoutes.put(
   '/:id',
-  validate(idParamSchema, 'params'),
+  validate(idOuProjetadoParamSchema, 'params'),
   validate(entradaPayloadSchema),
   asyncHandler(entradasController.atualizar),
 )

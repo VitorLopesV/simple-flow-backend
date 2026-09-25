@@ -48,7 +48,8 @@ O backend é o único ponto que fala com o Supabase Auth; o frontend nunca impor
 | POST   | `/auth/registro`| Cria o usuário no Supabase Auth e já retorna uma sessão  |
 | POST   | `/auth/login`   | `{ email, senha }` → `{ accessToken, refreshToken, expiresIn, usuario }` |
 | POST   | `/auth/refresh` | `{ refreshToken }` → novo par de tokens                  |
-| GET    | `/auth/me`      | Retorna o usuário autenticado (requer `Authorization: Bearer`) |
+| GET    | `/auth/me`      | Retorna o usuário autenticado com `telefone` e `fotoUrl` (requer `Authorization: Bearer`) |
+| PATCH  | `/auth/me`      | Atualização parcial do perfil: `{ nome?, email?, telefone?, fotoUrl? }`. `null` remove telefone/foto; o e-mail não pode ser trocado (só é aceito se igual ao atual); foto como data URL JPEG/PNG/WebP de até 500 KB |
 
 Todos os demais endpoints abaixo exigem `Authorization: Bearer <accessToken>`.
 
@@ -79,7 +80,7 @@ expor ao frontend.
 | PUT    | `/entradas/:id`        | Atualiza entrada                                                         |
 | DELETE | `/entradas/:id`        | Remove entrada                                                           |
 | GET    | `/saidas`              | Lista paginada (mesmos filtros + `status`)                               |
-| GET    | `/saidas/resumo`       | Totalizadores do período (query: `competencia`)                         |
+| GET    | `/saidas/resumo`       | Totalizadores do período (query: `competencia`), com `porCategoria` e `porTipo` (ver abaixo) |
 | POST   | `/saidas`              | Cria saída (não aceita `formaPagamento=CARTAO_CREDITO` — gasto no cartão vai em `/cartoes/:cartaoId/transacoes`) |
 | PUT    | `/saidas/:id`          | Atualiza saída (rejeitado com 409 se `automatica: true`)                 |
 | DELETE | `/saidas/:id`          | Remove saída (mesma restrição)                                           |
@@ -93,6 +94,24 @@ expor ao frontend.
 | DELETE | `/cartoes/:cartaoId/transacoes/:id` | Remove o débito                                            |
 | PATCH  | `/faturas/:id/pagar`   | Marca fatura como paga                                                   |
 | GET    | `/dashboard/resumo`    | Consolidado do período + série de 6 meses (query: `competencia`)         |
+
+### `GET /saidas/resumo` — `porTipo`
+
+Além de `porCategoria`, a resposta traz o total de gastos agrupado por tipo de saída
+(`SaidaTipo`: `TRANSPORTE`, `ALIMENTACAO`, `LAZER`, `CONTA`, `POUPANCA`, `ACOES`, `OUTROS`) no
+período consultado:
+
+```json
+"porTipo": [
+  { "tipo": "CONTA", "total": 300.00 },
+  { "tipo": "ALIMENTACAO", "total": 98.00 }
+]
+```
+
+- Ordenado do maior para o menor `total`.
+- Tipos sem saídas no período **ficam de fora** (não retornam total 0).
+- A soma dos `total` de `porTipo` é igual ao `total` do resumo (mesma base de saídas, incluindo
+  recorrências projetadas e a saída derivada da fatura do cartão).
 
 Os formatos de request/response estão tipados em `frontend/src/types` e espelhados nas
 entidades de `src/domain/entities`.
