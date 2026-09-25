@@ -11,6 +11,7 @@ export type SaidaTipo =
   | 'CONTA'
   | 'POUPANCA'
   | 'ACOES'
+  | 'FARMACIA'
   | 'OUTROS'
 
 export interface Saida {

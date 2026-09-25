@@ -116,6 +116,23 @@ describe('SupabaseSaidaRepository', () => {
       })
     })
 
+    it('a ocorrência projetada começa PENDENTE e sem pagoEm, mesmo com a origem paga', async () => {
+      const origem = linhaSaida({ id: 'origem', data: '2026-07-05', recorrente: true, status: 'PAGO', pago_em: '2026-07-05' })
+      const { client } = cenario({ candidatas: [origem] })
+
+      const [projetada] = await new SupabaseSaidaRepository(client).listarComProjecao(USER_ID, AGOSTO)
+
+      expect(projetada).toMatchObject({ id: 'origem_2026-08', status: 'PENDENTE', pagoEm: null })
+    })
+
+    it('a saída real do mês mantém a própria situação de pagamento', async () => {
+      const { client } = cenario({ saidas: [linhaSaida({ status: 'PAGO', pago_em: '2026-08-05' })] })
+
+      const [saida] = await new SupabaseSaidaRepository(client).listarComProjecao(USER_ID, AGOSTO)
+
+      expect(saida).toMatchObject({ status: 'PAGO', pagoEm: '2026-08-05' })
+    })
+
     it('inclui cada fatura que vence no mês como saída automática de cartão', async () => {
       const { client } = cenario({
         saidas: [linhaSaida({ data: '2026-08-01' })],

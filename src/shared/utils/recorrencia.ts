@@ -63,6 +63,8 @@ export function projetarRecorrencias<T extends ItemRecorrente>(
   candidatasAnterioresAoPeriodo: T[],
   chavesJaLancadasNoPeriodo: Set<string>,
   periodoAlvo: Periodo,
+  /** Campos que a ocorrência projetada NÃO herda do original (ex.: situação de pagamento da saída). */
+  sobrescrever: Partial<T> = {},
 ): (T & { origemRecorrenciaId: ID })[] {
   const alvo = ordinalDoPeriodo(periodoAlvo)
   const maisRecentePorSerie = new Map<string, T>()
@@ -86,6 +88,7 @@ export function projetarRecorrencias<T extends ItemRecorrente>(
       // como competência quando ele existe — ver TransactionForm.vue) reenviaria a
       // ocorrência para o mês do vencimento original ao editá-la, em vez do mês projetado.
       ...(origem.vencimento ? { vencimento: diaDoPeriodo(periodoAlvo, Number(origem.vencimento.slice(8, 10))) } : {}),
+      ...sobrescrever,
       origemRecorrenciaId: origem.id,
     }))
 }
