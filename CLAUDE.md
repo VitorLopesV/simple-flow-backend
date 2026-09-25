@@ -7,7 +7,7 @@
 - Supabase (`@supabase/supabase-js`) como banco (Postgres via PostgREST) e Auth — **sem ORM**.
 - Zod para validação de entrada.
 - `serverless-http` para rodar o Express como function na Vercel (`api/index.ts`).
-- Testes: Vitest instalado (`npm test`), mas **nenhum teste existe ainda** — cobertura 0%.
+- Testes: Vitest (`npm test`) + `@vitest/coverage-v8`. Suíte cobre todas as camadas — ver seção **Testes**.
 - **Sem ESLint/Prettier configurados.** Consistência de estilo é só por convenção — siga o código existente à risca.
 - Parte de um monorepo com workspaces npm (raiz define `workspaces: ["frontend", "backend"]`); não crie um `package-lock.json` dentro de `backend/`.
 
@@ -100,11 +100,23 @@ Gasto no cartão **não** é uma linha em `saidas`. Ele é lançado direto no ca
 
 Na aba Saídas o cartão aparece como **uma saída derivada por fatura** (`paraSaidaDeFatura` em `SupabaseSaidaRepository`, alimentada por `FaturaRepository.listarVencendoNoPeriodo`): id `sai_fat_<faturaId>`, data = vencimento, valor lido ao vivo, `automatica: true`. Nunca é persistida — editar/remover só pela aba Cartões. `AtualizarSaida`/`RemoverSaida` continuam bloqueando (`ConflictError`, 409) linhas com `automatica: true`; preserve essa proteção.
 
+No dashboard, `totalFaturas` e `serieFaturas` são **recortes** de `totalSaidas`/`serieSaidas` (as faturas continuam somadas nas saídas; o frontend subtrai), pelo mês de vencimento da fatura, ambos via `somarFaturas` em `SupabaseDashboardRepository` — não crie uma query própria por competência, senão a definição de mês diverge do resto do dashboard.
+
 O `total` de `faturas` é sempre recalculado como a soma das transações (`recalcularTotal`), nunca por delta.
 
 ## Testes
 
-Não há suíte ainda. Ao adicionar testes, usar Vitest (já instalado) e seguir a estrutura de camadas do projeto (testar use-cases isolando repositórios via mock/fake da interface do domain, não o client Supabase real).
+Vitest, em `test/` espelhando a estrutura de `src/` (`test/application/use-cases/x/CriarX.test.ts` testa `src/application/use-cases/x/CriarX.ts`). Nomes de `describe`/`it` em português. Cobertura atual: 100% das linhas em use-cases, repositórios, controllers, rotas, middlewares, schemas e utils — **todo código novo deve vir com testes**, mantendo esse patamar (mínimo 80% por camada).
+
+Como testar cada camada (reaproveite os helpers de `test/helpers/`, não crie outros equivalentes):
+
+- **Use-cases**: isolar a infraestrutura com os fakes das interfaces do domain em `repositoriosFake.ts` (`criarSaidaRepositoryFake()` etc.) — nunca o client Supabase.
+- **Repositórios Supabase**: `criarSupabaseFake()` de `supabaseFake.ts` simula o query builder (encadeável, registra cada chamada, resolve ao ser aguardado). Respostas por tabela como fila (`[ok(...), falha(...)]`) ou como função da query montada (use função quando a mesma tabela é consultada em paralelo com filtros diferentes, como no dashboard). Linhas snake_case prontas em `linhasSupabase.ts`. Sempre verificar o `.eq('user_id', ...)` das queries novas — é a segunda camada do multi-tenancy.
+- **Controllers**: `vi.mock` dos módulos de repositório e de use-case; `criarRequisicao()`/`criarResposta()` de `http.ts`. Verificar composição (repositório criado com `req.supabase`, use-case recebendo esse repositório), status/payload e que erro do use-case é propagado sem responder.
+- **Rotas**: `test/presentation/http/routes/routes.test.ts` sobe o `createApp()` real numa porta efêmera e usa `fetch`, com env, `SupabaseAuthService` e controllers mockados. **Rota nova = adicionar nas tabelas `ROTAS_PROTEGIDAS`/`ROTAS_PUBLICAS` e `ENTRADAS_INVALIDAS`.**
+- **SupabaseAuthService / middlewares**: `vi.mock` de `supabaseAdminClient`/`supabaseClientForRequest` — importar esses módulos sem mock carrega `env.ts`, que falha sem as variáveis de ambiente.
+
+O `tsconfig.json` exclui `test/`, então `npm run type-check` **não** checa os testes (e o Vitest não faz type-check). Para validar os tipos dos testes, use um tsconfig temporário que estenda o do projeto incluindo `src` e `test`.
 
 ## Scripts
 
@@ -114,6 +126,7 @@ npm run build         # tsc
 npm run start         # node --env-file=.env dist/src/server.js
 npm run type-check    # tsc --noEmit
 npm test              # vitest run
+npx vitest run --coverage --coverage.include='src/**'   # relatório de cobertura (apaga e recria coverage/)
 ```
 
 Do monorepo raiz: `npm run dev:backend`, `npm run build:backend`, `npm run type-check:backend`.

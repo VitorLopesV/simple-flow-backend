@@ -24,6 +24,12 @@ export interface DashboardResumo {
   /** Últimos 6 meses de entradas e saídas. */
   serieEntradas: SeriePonto[]
   serieSaidas: SeriePonto[]
+  /**
+   * Quanto de cada ponto de `serieSaidas` é fatura de cartão — mesma regra de
+   * `totalFaturas` (o último ponto é igual a ele). É um recorte, não um conjunto à
+   * parte: as faturas continuam somadas em `serieSaidas`.
+   */
+  serieFaturas: SeriePonto[]
   /** Distribuição das saídas por categoria no período. */
   gastosPorCategoria: { nome: string; cor: string; total: number }[]
   transacoesRecentes: TransacaoRecente[]
