@@ -127,6 +127,23 @@ describe('projetarRecorrencias', () => {
 
     expect(resultado[0]).toMatchObject({ descricao: 'Aluguel', categoriaId: 'cat-1', valor: 1500 })
   })
+
+  it('aplica os campos de sobrescrever na ocorrência projetada, sem alterar a origem', () => {
+    const origem = item({ valor: 1500 })
+
+    const [projetada] = projetarRecorrencias([origem], new Set(), SETEMBRO_2026, { valor: 0 })
+
+    expect(projetada).toMatchObject({ id: 'a_2026-09', valor: 0, origemRecorrenciaId: 'a' })
+    expect(origem.valor).toBe(1500)
+  })
+
+  it('não deixa sobrescrever apagar o vínculo com a origem', () => {
+    const [projetada] = projetarRecorrencias([item()], new Set(), SETEMBRO_2026, {
+      origemRecorrenciaId: 'outra',
+    } as Partial<ItemDeTeste>)
+
+    expect(projetada!.origemRecorrenciaId).toBe('a')
+  })
 })
 
 describe('chaveDaSerieDoItem', () => {
