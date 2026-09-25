@@ -96,3 +96,8 @@ export function ok(data: unknown): RespostaSupabase {
 export function falha(error: unknown): RespostaSupabase {
   return { data: null, error }
 }
+
+/** true se a consulta chamou `metodo` em algum ponto da cadeia. */
+export function usou(consulta: ConsultaRegistrada, metodo: string): boolean {
+  return consulta.chamadas.some(([nome]) => nome === metodo)
+}
