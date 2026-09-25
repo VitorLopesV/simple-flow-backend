@@ -18,6 +18,16 @@ function somar(registros: { valor: number }[]): number {
 }
 
 /**
+ * Quanto das saídas é fatura de cartão. Sai do mesmo conjunto que alimenta o total de
+ * saídas (as saídas derivadas de fatura, ver `paraSaidaDeFatura`) — antes era uma query
+ * própria por competência, ou seja, uma definição de mês diferente do resto do
+ * dashboard: a fatura de setembro que vence em outubro contava nos dois meses.
+ */
+function somarFaturas(saidas: Saida[]): number {
+  return somar(saidas.filter((saida) => saida.automatica && saida.formaPagamento === 'CARTAO_CREDITO'))
+}
+
+/**
  * Recebe um client Supabase escopado no JWT do usuário — o RLS já restringe as
  * queries ao próprio usuário; o filtro explícito por userId é defesa em profundidade.
  */
@@ -52,13 +62,7 @@ export class SupabaseDashboardRepository implements DashboardRepository {
 
     const totalEntradas = somar(entradasDoMes)
     const totalSaidas = somar(saidasDoMes)
-    // Quanto das saídas do mês é fatura de cartão. Sai do mesmo conjunto que alimenta
-    // `totalSaidas` (as saídas derivadas de fatura, ver `paraSaidaDeFatura`) — antes era
-    // uma query própria por competência, ou seja, uma definição de mês diferente do resto
-    // do dashboard: a fatura de setembro que vence em outubro contava nos dois meses.
-    const totalFaturas = saidasDoMes
-      .filter((saida) => saida.automatica && saida.formaPagamento === 'CARTAO_CREDITO')
-      .reduce((soma, saida) => soma + saida.valor, 0)
+    const totalFaturas = somarFaturas(saidasDoMes)
 
     const serieEntradas: SeriePonto[] = periodos.map((p, i) => ({
       label: labelCurtoPeriodo(p),
@@ -67,6 +71,10 @@ export class SupabaseDashboardRepository implements DashboardRepository {
     const serieSaidas: SeriePonto[] = periodos.map((p, i) => ({
       label: labelCurtoPeriodo(p),
       valor: somar(saidasPorPeriodo[i]!),
+    }))
+    const serieFaturas: SeriePonto[] = periodos.map((p, i) => ({
+      label: labelCurtoPeriodo(p),
+      valor: somarFaturas(saidasPorPeriodo[i]!),
     }))
 
     const agrupado = new Map<string, number>()
@@ -115,6 +123,7 @@ export class SupabaseDashboardRepository implements DashboardRepository {
       variacaoSaidas: calcularVariacao(totalSaidas, serieSaidas.at(-2)?.valor ?? 0),
       serieEntradas,
       serieSaidas,
+      serieFaturas,
       gastosPorCategoria,
       transacoesRecentes,
     }
