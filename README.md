@@ -48,7 +48,8 @@ O backend é o único ponto que fala com o Supabase Auth; o frontend nunca impor
 | POST   | `/auth/registro`| Cria o usuário no Supabase Auth e já retorna uma sessão  |
 | POST   | `/auth/login`   | `{ email, senha }` → `{ accessToken, refreshToken, expiresIn, usuario }` |
 | POST   | `/auth/refresh` | `{ refreshToken }` → novo par de tokens                  |
-| GET    | `/auth/me`      | Retorna o usuário autenticado (requer `Authorization: Bearer`) |
+| GET    | `/auth/me`      | Retorna o usuário autenticado com `telefone` e `fotoUrl` (requer `Authorization: Bearer`) |
+| PATCH  | `/auth/me`      | Atualização parcial do perfil: `{ nome?, email?, telefone?, fotoUrl? }`. `null` remove telefone/foto; o e-mail não pode ser trocado (só é aceito se igual ao atual); foto como data URL JPEG/PNG/WebP de até 500 KB |
 
 Todos os demais endpoints abaixo exigem `Authorization: Bearer <accessToken>`.
 

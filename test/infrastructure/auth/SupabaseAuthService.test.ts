@@ -2,19 +2,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { UnauthorizedError, ValidationError } from '../../../src/domain/errors/DomainError'
 import { SupabaseAuthService } from '../../../src/infrastructure/auth/SupabaseAuthService'
+import { criarSupabaseFake, falha, ok } from '../../helpers/supabaseFake'
 
-const { createUser, signInWithPassword, refreshSession, getUser, supabaseAnonClient } = vi.hoisted(() => {
-  const signInWithPassword = vi.fn()
-  const refreshSession = vi.fn()
-  const getUser = vi.fn()
-  return {
-    createUser: vi.fn(),
-    signInWithPassword,
-    refreshSession,
-    getUser,
-    supabaseAnonClient: vi.fn(() => ({ auth: { signInWithPassword, refreshSession, getUser } })),
-  }
-})
+const { createUser, signInWithPassword, refreshSession, getUser, supabaseAnonClient, supabaseClientForRequest } =
+  vi.hoisted(() => {
+    const signInWithPassword = vi.fn()
+    const refreshSession = vi.fn()
+    const getUser = vi.fn()
+    return {
+      createUser: vi.fn(),
+      signInWithPassword,
+      refreshSession,
+      getUser,
+      supabaseAnonClient: vi.fn(() => ({ auth: { signInWithPassword, refreshSession, getUser } })),
+      supabaseClientForRequest: vi.fn(),
+    }
+  })
 
 vi.mock('../../../src/infrastructure/supabase/supabaseAdminClient', () => ({
   supabaseAdminClient: { auth: { admin: { createUser } } },
@@ -22,16 +25,31 @@ vi.mock('../../../src/infrastructure/supabase/supabaseAdminClient', () => ({
 
 vi.mock('../../../src/infrastructure/supabase/supabaseClientForRequest', () => ({
   supabaseAnonClient,
+  supabaseClientForRequest,
 }))
 
 const USUARIO_SUPABASE = { id: 'user-1', email: 'ana@exemplo.com', user_metadata: { nome: 'Ana' } }
 const SESSAO_SUPABASE = { access_token: 'access', refresh_token: 'refresh', expires_in: 3600 }
+const PERFIL = { nome: 'Ana Souza', telefone: '11999998888', foto_url: 'data:image/jpeg;base64,AAAA' }
 
 const SESSAO_ESPERADA = {
-  usuario: { id: 'user-1', email: 'ana@exemplo.com', nome: 'Ana' },
+  usuario: {
+    id: 'user-1',
+    email: 'ana@exemplo.com',
+    nome: 'Ana Souza',
+    telefone: '11999998888',
+    fotoUrl: 'data:image/jpeg;base64,AAAA',
+  },
   accessToken: 'access',
   refreshToken: 'refresh',
   expiresIn: 3600,
+}
+
+/** `profiles` lido com o client escopado no token recém-emitido. */
+function perfilNoBanco(resposta = ok(PERFIL)) {
+  const fake = criarSupabaseFake({ profiles: [resposta] })
+  supabaseClientForRequest.mockReturnValue(fake.client)
+  return fake
 }
 
 describe('SupabaseAuthService', () => {
@@ -41,23 +59,30 @@ describe('SupabaseAuthService', () => {
     signInWithPassword.mockResolvedValue({ data: { user: USUARIO_SUPABASE, session: SESSAO_SUPABASE }, error: null })
     refreshSession.mockResolvedValue({ data: { user: USUARIO_SUPABASE, session: SESSAO_SUPABASE }, error: null })
     getUser.mockResolvedValue({ data: { user: USUARIO_SUPABASE }, error: null })
+    perfilNoBanco()
   })
 
   describe('registrar', () => {
-    it('cria o usuário já confirmado com o nome nos metadados e devolve a sessão do login', async () => {
-      const sessao = await SupabaseAuthService.registrar('ana@exemplo.com', 'segredo', 'Ana')
+    it('cria o usuário já confirmado com nome e telefone nos metadados e devolve a sessão do login', async () => {
+      const sessao = await SupabaseAuthService.registrar('ana@exemplo.com', 'segredo', 'Ana', '11999998888')
 
       expect(createUser).toHaveBeenCalledWith({
         email: 'ana@exemplo.com',
         password: 'segredo',
         email_confirm: true,
-        user_metadata: { nome: 'Ana' },
+        user_metadata: { nome: 'Ana', telefone: '11999998888' },
       })
       expect(signInWithPassword).toHaveBeenCalledWith({ email: 'ana@exemplo.com', password: 'segredo' })
       expect(sessao).toEqual(SESSAO_ESPERADA)
     })
 
-    it('não envia metadados quando o nome não é informado', async () => {
+    it('envia só o nome quando o telefone não é informado', async () => {
+      await SupabaseAuthService.registrar('ana@exemplo.com', 'segredo', 'Ana', null)
+
+      expect(createUser).toHaveBeenCalledWith(expect.objectContaining({ user_metadata: { nome: 'Ana' } }))
+    })
+
+    it('não envia metadados quando nem nome nem telefone são informados', async () => {
       await SupabaseAuthService.registrar('ana@exemplo.com', 'segredo')
 
       expect(createUser).toHaveBeenCalledWith(expect.objectContaining({ user_metadata: undefined }))
@@ -83,12 +108,26 @@ describe('SupabaseAuthService', () => {
   })
 
   describe('login', () => {
-    it('autentica com o client anônimo e mapeia a sessão', async () => {
+    it('autentica com o client anônimo e completa o usuário com o perfil, lido como o próprio usuário', async () => {
+      const fake = perfilNoBanco()
+
       await expect(SupabaseAuthService.login('ana@exemplo.com', 'segredo')).resolves.toEqual(SESSAO_ESPERADA)
+
       expect(supabaseAnonClient).toHaveBeenCalled()
+      expect(supabaseClientForRequest).toHaveBeenCalledWith('access')
+      expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'id', 'user-1'])
     })
 
-    it('usa e-mail vazio e nome nulo quando o usuário não tem esses dados', async () => {
+    it('usa o nome do metadata e telefone/foto nulos quando o perfil não existe', async () => {
+      perfilNoBanco(ok(null))
+
+      const sessao = await SupabaseAuthService.login('ana@exemplo.com', 'segredo')
+
+      expect(sessao.usuario).toEqual({ id: 'user-1', email: 'ana@exemplo.com', nome: 'Ana', telefone: null, fotoUrl: null })
+    })
+
+    it('usa e-mail vazio e nome nulo quando nem usuário nem perfil têm esses dados', async () => {
+      perfilNoBanco(ok({ nome: null, telefone: null, foto_url: null }))
       signInWithPassword.mockResolvedValue({
         data: { user: { id: 'user-2', user_metadata: {} }, session: SESSAO_SUPABASE },
         error: null,
@@ -96,7 +135,14 @@ describe('SupabaseAuthService', () => {
 
       const sessao = await SupabaseAuthService.login('ana@exemplo.com', 'segredo')
 
-      expect(sessao.usuario).toEqual({ id: 'user-2', email: '', nome: null })
+      expect(sessao.usuario).toEqual({ id: 'user-2', email: '', nome: null, telefone: null, fotoUrl: null })
+    })
+
+    it('propaga o erro da leitura do perfil', async () => {
+      const erro = { message: 'falha no banco' }
+      perfilNoBanco(falha(erro))
+
+      await expect(SupabaseAuthService.login('ana@exemplo.com', 'segredo')).rejects.toBe(erro)
     })
 
     it.each([
@@ -114,7 +160,7 @@ describe('SupabaseAuthService', () => {
   })
 
   describe('renovar', () => {
-    it('renova a sessão pelo refresh token', async () => {
+    it('renova a sessão pelo refresh token, com o perfil atualizado', async () => {
       await expect(SupabaseAuthService.renovar('refresh-antigo')).resolves.toEqual(SESSAO_ESPERADA)
       expect(refreshSession).toHaveBeenCalledWith({ refresh_token: 'refresh-antigo' })
     })
@@ -133,9 +179,14 @@ describe('SupabaseAuthService', () => {
   })
 
   describe('obterUsuarioPorToken', () => {
-    it('valida o token e devolve o usuário mapeado', async () => {
-      await expect(SupabaseAuthService.obterUsuarioPorToken('access')).resolves.toEqual(SESSAO_ESPERADA.usuario)
+    it('valida o token e devolve id, e-mail e nome, sem consultar o perfil', async () => {
+      await expect(SupabaseAuthService.obterUsuarioPorToken('access')).resolves.toEqual({
+        id: 'user-1',
+        email: 'ana@exemplo.com',
+        nome: 'Ana',
+      })
       expect(getUser).toHaveBeenCalledWith('access')
+      expect(supabaseClientForRequest).not.toHaveBeenCalled()
     })
 
     it.each([

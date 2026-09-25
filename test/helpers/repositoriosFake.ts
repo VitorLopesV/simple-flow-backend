@@ -6,6 +6,7 @@ import type { CategoriaRepository } from '../../src/domain/repositories/Categori
 import type { DashboardRepository } from '../../src/domain/repositories/DashboardRepository'
 import type { EntradaRepository } from '../../src/domain/repositories/EntradaRepository'
 import type { FaturaRepository } from '../../src/domain/repositories/FaturaRepository'
+import type { PerfilRepository } from '../../src/domain/repositories/PerfilRepository'
 import type { SaidaRepository } from '../../src/domain/repositories/SaidaRepository'
 
 /**
@@ -74,4 +75,8 @@ export function criarAuthServiceFake() {
     renovar: vi.fn(),
     obterUsuarioPorToken: vi.fn(),
   } satisfies AuthService
+}
+
+export function criarPerfilRepositoryFake() {
+  return { buscar: vi.fn(), atualizar: vi.fn() } satisfies PerfilRepository
 }

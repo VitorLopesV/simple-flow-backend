@@ -6,7 +6,7 @@ import { UnauthorizedError } from '../../../../src/domain/errors/DomainError'
 import { criarAuthServiceFake } from '../../../helpers/repositoriosFake'
 
 const SESSAO: SessaoUsuario = {
-  usuario: { id: 'user-1', email: 'ana@exemplo.com', nome: 'Ana' },
+  usuario: { id: 'user-1', email: 'ana@exemplo.com', nome: 'Ana', telefone: null, fotoUrl: null },
   accessToken: 'access-novo',
   refreshToken: 'refresh-novo',
   expiresIn: 3600,

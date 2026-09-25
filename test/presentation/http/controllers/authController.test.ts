@@ -11,9 +11,12 @@ const m = vi.hoisted(() => {
   }
   return {
     authService: { servico: 'SupabaseAuthService' },
+    RepositorioPerfil: vi.fn(function (client: unknown) { return { repositorio: 'perfil', client } }),
     registrar: useCase(),
     autenticar: useCase(),
     renovar: useCase(),
+    obterPerfil: useCase(),
+    atualizarPerfil: useCase(),
   }
 })
 
@@ -21,8 +24,14 @@ vi.mock('../../../../src/infrastructure/auth/SupabaseAuthService', () => ({ Supa
 vi.mock('../../../../src/application/use-cases/auth/RegistrarUsuario', () => ({ RegistrarUsuario: m.registrar.Classe }))
 vi.mock('../../../../src/application/use-cases/auth/AutenticarUsuario', () => ({ AutenticarUsuario: m.autenticar.Classe }))
 vi.mock('../../../../src/application/use-cases/auth/RenovarSessao', () => ({ RenovarSessao: m.renovar.Classe }))
+vi.mock('../../../../src/application/use-cases/auth/ObterPerfil', () => ({ ObterPerfil: m.obterPerfil.Classe }))
+vi.mock('../../../../src/application/use-cases/auth/AtualizarPerfil', () => ({ AtualizarPerfil: m.atualizarPerfil.Classe }))
+vi.mock('../../../../src/infrastructure/supabase/repositories/SupabasePerfilRepository', () => ({
+  SupabasePerfilRepository: m.RepositorioPerfil,
+}))
 
-const SESSAO = { usuario: USUARIO, accessToken: 'access', refreshToken: 'refresh', expiresIn: 3600 }
+const USUARIO_COMPLETO = { ...USUARIO, telefone: '11999998888', fotoUrl: 'data:image/jpeg;base64,AAAA' }
+const SESSAO = { usuario: USUARIO_COMPLETO, accessToken: 'access', refreshToken: 'refresh', expiresIn: 3600 }
 
 describe('authController', () => {
   it('instancia os use-cases uma única vez, no carregamento do módulo, com o SupabaseAuthService', () => {
@@ -34,16 +43,22 @@ describe('authController', () => {
 
   describe('ações', () => {
     beforeEach(() => {
-      for (const { execute } of [m.registrar, m.autenticar, m.renovar]) execute.mockReset()
+      for (const { execute } of [m.registrar, m.autenticar, m.renovar, m.obterPerfil, m.atualizarPerfil]) execute.mockReset()
+      m.RepositorioPerfil.mockClear()
+      m.obterPerfil.Classe.mockClear()
+      m.atualizarPerfil.Classe.mockClear()
     })
 
-    it('registrar: repassa email, senha e nome do body e responde 201 com a sessão', async () => {
+    it('registrar: repassa email, senha, nome e telefone do body e responde 201 com a sessão', async () => {
       m.registrar.execute.mockResolvedValue(SESSAO)
       const res = criarResposta()
 
-      await authController.registrar(criarRequisicao({ body: { email: 'ana@exemplo.com', senha: 'segredo', nome: 'Ana' } }), res)
+      await authController.registrar(
+        criarRequisicao({ body: { email: 'ana@exemplo.com', senha: 'segredo', nome: 'Ana', telefone: '11999998888' } }),
+        res,
+      )
 
-      expect(m.registrar.execute).toHaveBeenCalledWith('ana@exemplo.com', 'segredo', 'Ana')
+      expect(m.registrar.execute).toHaveBeenCalledWith('ana@exemplo.com', 'segredo', 'Ana', '11999998888')
       expect(res.status).toHaveBeenCalledWith(201)
       expect(res.json).toHaveBeenCalledWith(SESSAO)
     })
@@ -98,12 +113,50 @@ describe('authController', () => {
       expect(res.json).not.toHaveBeenCalled()
     })
 
-    it('me: responde com o usuário autenticado pelo middleware', async () => {
+    it('me: completa o usuário autenticado com o perfil lido pelo client da requisição', async () => {
+      m.obterPerfil.execute.mockResolvedValue(USUARIO_COMPLETO)
+      const req = criarRequisicao()
       const res = criarResposta()
 
-      await authController.me(criarRequisicao(), res)
+      await authController.me(req, res)
 
-      expect(res.json).toHaveBeenCalledWith(USUARIO)
+      expect(m.RepositorioPerfil).toHaveBeenCalledWith(req.supabase)
+      expect(m.obterPerfil.Classe).toHaveBeenCalledWith(m.RepositorioPerfil.mock.results[0]!.value)
+      expect(m.obterPerfil.execute).toHaveBeenCalledWith(USUARIO)
+      expect(res.json).toHaveBeenCalledWith(USUARIO_COMPLETO)
+    })
+
+    it('me: propaga o erro do use-case sem responder', async () => {
+      const erro = new Error('falha')
+      m.obterPerfil.execute.mockRejectedValue(erro)
+      const res = criarResposta()
+
+      await expect(authController.me(criarRequisicao(), res)).rejects.toBe(erro)
+      expect(res.json).not.toHaveBeenCalled()
+    })
+
+    it('atualizarPerfil: atualiza o perfil do usuário autenticado com o body e responde 200 com o usuário', async () => {
+      const body = { nome: 'Ana Souza', telefone: '11999998888', fotoUrl: null }
+      m.atualizarPerfil.execute.mockResolvedValue(USUARIO_COMPLETO)
+      const req = criarRequisicao({ body })
+      const res = criarResposta()
+
+      await authController.atualizarPerfil(req, res)
+
+      expect(m.RepositorioPerfil).toHaveBeenCalledWith(req.supabase)
+      expect(m.atualizarPerfil.Classe).toHaveBeenCalledWith(m.RepositorioPerfil.mock.results[0]!.value)
+      expect(m.atualizarPerfil.execute).toHaveBeenCalledWith(USUARIO, body)
+      expect(res.status).not.toHaveBeenCalled()
+      expect(res.json).toHaveBeenCalledWith(USUARIO_COMPLETO)
+    })
+
+    it('atualizarPerfil: propaga o ValidationError sem responder', async () => {
+      const erro = new ValidationError('O e-mail não pode ser alterado.')
+      m.atualizarPerfil.execute.mockRejectedValue(erro)
+      const res = criarResposta()
+
+      await expect(authController.atualizarPerfil(criarRequisicao({ body: { email: 'x@y.com' } }), res)).rejects.toBe(erro)
+      expect(res.json).not.toHaveBeenCalled()
     })
   })
 })

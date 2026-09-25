@@ -27,7 +27,7 @@ const m = vi.hoisted(() => {
   return {
     obterUsuarioPorToken: vi.fn(),
     supabaseClientForRequest: vi.fn(() => ({ cliente: 'supabase-da-requisicao' })),
-    auth: controller('auth', ['registrar', 'login', 'refresh', 'me']),
+    auth: controller('auth', ['registrar', 'login', 'refresh', 'me', 'atualizarPerfil']),
     categorias: controller('categorias', ['listar']),
     entradas: controller('entradas', ['listar', 'resumo', 'criar', 'atualizar', 'remover']),
     saidas: controller('saidas', ['listar', 'resumo', 'criar', 'atualizar', 'remover']),
@@ -85,6 +85,12 @@ const CARTAO = {
   cor: '#820ad1',
   ativo: true,
 }
+const PERFIL = {
+  nome: 'Ana Souza',
+  email: 'ana@exemplo.com',
+  telefone: '11999998888',
+  fotoUrl: 'data:image/jpeg;base64,/9j/4AAQ',
+}
 const TRANSACAO = {
   descricao: 'Mercado',
   valor: 200,
@@ -111,6 +117,7 @@ const ROTAS_PUBLICAS: Rota[] = [
 
 const ROTAS_PROTEGIDAS: Rota[] = [
   { metodo: 'GET', caminho: '/api/auth/me', acao: 'auth.me' },
+  { metodo: 'PATCH', caminho: '/api/auth/me', acao: 'auth.atualizarPerfil', body: PERFIL },
   { metodo: 'GET', caminho: '/api/categorias', acao: 'categorias.listar' },
   { metodo: 'GET', caminho: '/api/entradas/resumo?competencia=2026-08', acao: 'entradas.resumo' },
   { metodo: 'GET', caminho: '/api/entradas?mes=8&ano=2026', acao: 'entradas.listar' },
@@ -139,6 +146,11 @@ const ENTRADAS_INVALIDAS: (Omit<Rota, 'acao'> & { mensagem?: string })[] = [
   { metodo: 'POST', caminho: '/api/auth/registro', body: { email: 'ana', senha: 'segredo' }, mensagem: 'E-mail inválido.' },
   { metodo: 'POST', caminho: '/api/auth/login', body: { email: 'ana@exemplo.com', senha: '' }, mensagem: 'Informe a senha.' },
   { metodo: 'POST', caminho: '/api/auth/refresh', body: { refreshToken: '' }, mensagem: 'Informe o refresh token.' },
+  { metodo: 'POST', caminho: '/api/auth/registro', body: { email: 'ana@exemplo.com', senha: 'segredo', telefone: '123' }, mensagem: 'Telefone inválido, informe só os números com DDD (10 ou 11 dígitos).' },
+  { metodo: 'PATCH', caminho: '/api/auth/me', body: { ...PERFIL, nome: 'A' }, mensagem: 'O nome deve ter entre 2 e 60 caracteres.' },
+  { metodo: 'PATCH', caminho: '/api/auth/me', body: { ...PERFIL, email: 'ana' }, mensagem: 'E-mail inválido.' },
+  { metodo: 'PATCH', caminho: '/api/auth/me', body: { ...PERFIL, telefone: '(11) 99999-8888' }, mensagem: 'Telefone inválido, informe só os números com DDD (10 ou 11 dígitos).' },
+  { metodo: 'PATCH', caminho: '/api/auth/me', body: { ...PERFIL, fotoUrl: 'https://exemplo.com/foto.jpg' }, mensagem: 'Foto inválida, envie uma imagem JPEG, PNG ou WebP.' },
   { metodo: 'GET', caminho: '/api/entradas/resumo?competencia=08-2026', mensagem: 'Competência inválida, use o formato YYYY-MM.' },
   { metodo: 'GET', caminho: '/api/entradas?mes=13&ano=2026' },
   { metodo: 'POST', caminho: '/api/entradas', body: { ...ENTRADA, valor: -1 }, mensagem: 'O valor deve ser positivo.' },
@@ -292,6 +304,42 @@ describe('rotas HTTP', () => {
 
       expect(status).toBe(200)
       expect(corpo.params).toEqual({ id: `${UUID}_2026-08` })
+    })
+  })
+
+  describe('PATCH /api/auth/me', () => {
+    const fotoCom = (bytes: number) => `data:image/jpeg;base64,${Buffer.alloc(bytes, 1).toString('base64')}`
+
+    it('aceita foto de até 500 KB e entrega o body ao controller', async () => {
+      const fotoUrl = fotoCom(500 * 1024)
+
+      const { status, corpo } = await requisitar('PATCH', '/api/auth/me', { body: { fotoUrl } })
+
+      expect(status).toBe(200)
+      expect(corpo.body).toEqual({ fotoUrl })
+    })
+
+    it('rejeita foto acima de 500 KB com 422 e mensagem clara, sem chamar o controller', async () => {
+      const { status, corpo } = await requisitar('PATCH', '/api/auth/me', { body: { fotoUrl: fotoCom(500 * 1024 + 1) } })
+
+      expect(status).toBe(422)
+      expect(corpo).toEqual({ message: 'A foto deve ter no máximo 500 KB.' })
+      expect(m.auth.atualizarPerfil).not.toHaveBeenCalled()
+    })
+
+    it('rejeita corpo acima do limite do express.json com 413 e mensagem clara', async () => {
+      const { status, corpo } = await requisitar('PATCH', '/api/auth/me', { body: { fotoUrl: fotoCom(1024 * 1024) } })
+
+      expect(status).toBe(413)
+      expect(corpo).toEqual({ message: 'Requisição muito grande. A foto deve ter no máximo 500 KB.' })
+      expect(m.auth.atualizarPerfil).not.toHaveBeenCalled()
+    })
+
+    it('descarta um id enviado no corpo — o dono do perfil vem só do token', async () => {
+      const { corpo } = await requisitar('PATCH', '/api/auth/me', { body: { id: 'outro-usuario', nome: 'Invasor' } })
+
+      expect(corpo.body).toEqual({ nome: 'Invasor' })
+      expect(m.obterUsuarioPorToken).toHaveBeenCalledWith('token-valido')
     })
   })
 

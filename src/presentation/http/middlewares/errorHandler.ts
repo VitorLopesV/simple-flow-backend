@@ -20,6 +20,12 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
     return
   }
 
+  // Lançado pelo express.json() quando o corpo passa do limite configurado em app.ts.
+  if (error?.type === 'entity.too.large') {
+    res.status(413).json({ message: 'Requisição muito grande. A foto deve ter no máximo 500 KB.' })
+    return
+  }
+
   console.error(error)
   res.status(500).json({ message: 'Erro interno do servidor.' })
 }
