@@ -6,9 +6,11 @@ import {
   linhaEntrada,
   linhaFatura,
   linhaSaida,
+  linhaTransacao,
   type EntradaRow,
   type FaturaRow,
   type SaidaRow,
+  type TransacaoRow,
 } from '../../../helpers/linhasSupabase'
 import { argumentos, criarSupabaseFake, falha, ok, usou, type ConsultaRegistrada } from '../../../helpers/supabaseFake'
 
@@ -41,6 +43,7 @@ function cenario({
   entradas = [] as EntradaRow[],
   saidas = [] as SaidaRow[],
   faturas = [] as FaturaRow[],
+  transacoes = [] as TransacaoRow[],
   categorias = ok(CATEGORIAS),
 } = {}) {
   const candidatas = (consulta: ConsultaRegistrada) => usou(consulta, 'lt')
@@ -50,7 +53,11 @@ function cenario({
     saidas: (consulta) => ok(candidatas(consulta) ? [] : noIntervalo(consulta, saidas, 'data')),
     faturas: (consulta) => ok(noIntervalo(consulta, faturas, 'vencimento')),
     cartoes: () => ok([{ id: 'cartao-1', nome: 'Nubank' }]),
-    transacoes_cartao: () => ok([]),
+    transacoes_cartao: (consulta) => {
+      if (candidatas(consulta)) return ok([])
+      const [, faturaIds] = argumentos(consulta, 'in') ?? []
+      return ok(transacoes.filter((transacao) => (faturaIds as string[]).includes(transacao.fatura_id)))
+    },
     categorias: (consulta) => (usou(consulta, 'maybeSingle') ? ok({ id: 'cat-var' }) : categorias),
   })
 }
@@ -232,6 +239,68 @@ describe('SupabaseDashboardRepository', () => {
       const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
 
       expect(resumo.gastosPorCategoria).toEqual([{ nome: 'Outros', cor: '#94a3b8', total: 70 }])
+    })
+  })
+
+  describe('gastos de cartão', () => {
+    /** Fatura de agosto (vence 10/08) com mercado, farmácia e uma compra sem categoria conhecida. */
+    function cenarioComCartao() {
+      return cenario({
+        faturas: [
+          linhaFatura({ id: 'fat-ago', total: 330 }),
+          // Vence em setembro: fica fora do mês, mesmo tendo transações.
+          linhaFatura({ id: 'fat-set', competencia: '2026-08', vencimento: '2026-09-10', total: 999 }),
+        ],
+        transacoes: [
+          linhaTransacao({ id: 't1', fatura_id: 'fat-ago', valor: 200, tipo: 'ALIMENTACAO', categoria_id: 'cat-var' }),
+          linhaTransacao({ id: 't2', fatura_id: 'fat-ago', valor: 80, tipo: 'FARMACIA', categoria_id: 'cat-fixa' }),
+          linhaTransacao({ id: 't3', fatura_id: 'fat-ago', valor: 50, tipo: 'ALIMENTACAO', categoria_id: 'cat-sumida' }),
+          linhaTransacao({ id: 't4', fatura_id: 'fat-set', valor: 999, tipo: 'LAZER', categoria_id: 'cat-var' }),
+        ],
+        saidas: [linhaSaida({ valor: 500, tipo: 'LAZER', categoria_id: 'cat-fixa' })],
+      })
+    }
+
+    it('agrupa por tipo as transações das faturas que vencem no mês, do maior para o menor', async () => {
+      const { client } = cenarioComCartao()
+
+      const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
+
+      expect(resumo.gastosCartoesPorTipo).toEqual([
+        { tipo: 'ALIMENTACAO', total: 250 },
+        { tipo: 'FARMACIA', total: 80 },
+      ])
+    })
+
+    it('agrupa as mesmas transações por categoria, com "Outros" para categoria desconhecida', async () => {
+      const { client } = cenarioComCartao()
+
+      const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
+
+      expect(resumo.gastosCartoesPorCategoria).toEqual([
+        { nome: 'Despesa Variável', cor: '#f97316', total: 200 },
+        { nome: 'Despesa Fixa', cor: '#ef4444', total: 80 },
+        { nome: 'Outros', cor: '#94a3b8', total: 50 },
+      ])
+    })
+
+    it('soma o mesmo que totalFaturas', async () => {
+      const { client } = cenarioComCartao()
+
+      const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
+
+      const somar = (itens: { total: number }[]) => itens.reduce((soma, item) => soma + item.total, 0)
+      expect(somar(resumo.gastosCartoesPorTipo)).toBe(resumo.totalFaturas)
+      expect(somar(resumo.gastosCartoesPorCategoria)).toBe(resumo.totalFaturas)
+    })
+
+    it('volta vazio quando nenhuma fatura vence no mês', async () => {
+      const { client } = cenario({ saidas: [linhaSaida({ valor: 500 })] })
+
+      const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
+
+      expect(resumo.gastosCartoesPorTipo).toEqual([])
+      expect(resumo.gastosCartoesPorCategoria).toEqual([])
     })
   })
 

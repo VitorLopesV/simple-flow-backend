@@ -103,6 +103,8 @@ Na aba Saídas o cartão aparece como **uma saída derivada por fatura** (`paraS
 
 No dashboard, `totalFaturas` e `serieFaturas` são **recortes** de `totalSaidas`/`serieSaidas` (as faturas continuam somadas nas saídas; o frontend subtrai), pelo mês de vencimento da fatura, ambos via `somarFaturas` em `SupabaseDashboardRepository` — não crie uma query própria por competência, senão a definição de mês diverge do resto do dashboard.
 
+`gastosCartoesPorTipo`/`gastosCartoesPorCategoria` detalham essas mesmas faturas pelas transações (`FaturaComoSaida.transacoes`, lançadas + recorrências projetadas), vindas de `listarVencendoNoPeriodo` — a soma de cada um bate com `totalFaturas`.
+
 O `total` de `faturas` é sempre recalculado como a soma das transações (`recalcularTotal`), nunca por delta.
 
 ## Testes

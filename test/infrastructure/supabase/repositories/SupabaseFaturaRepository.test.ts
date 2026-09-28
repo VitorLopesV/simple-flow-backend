@@ -297,6 +297,7 @@ describe('SupabaseFaturaRepository', () => {
           total: 450,
           paga: false,
           pagoEm: null,
+          transacoes: [],
         },
         {
           faturaId: 'fat-2',
@@ -307,6 +308,7 @@ describe('SupabaseFaturaRepository', () => {
           total: 90,
           paga: true,
           pagoEm: '2026-08-20',
+          transacoes: [],
         },
       ])
     })
@@ -352,6 +354,29 @@ describe('SupabaseFaturaRepository', () => {
       const [fatura] = await new SupabaseFaturaRepository(client).listarVencendoNoPeriodo(USER_ID, AGOSTO)
 
       expect(fatura!.total).toBe(240)
+    })
+
+    it('devolve as transações que compõem o total: as lançadas na fatura e as recorrências projetadas', async () => {
+      const { client } = cenario({
+        faturas: ok([
+          linhaFatura({ id: 'fat-1', competencia: '2026-07', total: 200 }),
+          linhaFatura({ id: 'fat-2', cartao_id: 'cartao-2', competencia: '2026-07', total: 30 }),
+        ]),
+        transacoes: ok([
+          linhaTransacao({ id: 'mercado-jul', descricao: 'Mercado', data: '2026-07-15', valor: 200 }),
+          linhaTransacao({ id: 'uber-jul', fatura_id: 'fat-2', cartao_id: 'cartao-2', descricao: 'Uber', valor: 30 }),
+        ]),
+        candidatas: ok([
+          linhaTransacao({ id: 'netflix', descricao: 'Netflix', data: '2026-06-01', valor: 40, tipo: 'LAZER', recorrente: true }),
+        ]),
+      })
+
+      const [fatura1, fatura2] = await new SupabaseFaturaRepository(client).listarVencendoNoPeriodo(USER_ID, AGOSTO)
+
+      expect(fatura1!.transacoes.map((t) => t.id)).toEqual(['mercado-jul', 'netflix_2026-07'])
+      expect(fatura1!.transacoes.reduce((soma, t) => soma + t.valor, 0)).toBe(fatura1!.total)
+      // Cada fatura só leva as próprias transações, e a recorrência de outro cartão não entra.
+      expect(fatura2!.transacoes.map((t) => t.id)).toEqual(['uber-jul'])
     })
 
     it('deixa de fora faturas zeradas', async () => {

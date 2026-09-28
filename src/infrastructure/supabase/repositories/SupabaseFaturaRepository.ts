@@ -243,9 +243,8 @@ export class SupabaseFaturaRepository implements FaturaRepository {
 
     return faturas
       .map((fatura) => {
-        const chavesRealizadas = new Set(
-          transacoesRes.data.filter((t) => t.fatura_id === fatura.id).map(paraTransacao).map(chaveDaSerieDoItem),
-        )
+        const realizadas = transacoesRes.data.filter((t) => t.fatura_id === fatura.id).map(paraTransacao)
+        const chavesRealizadas = new Set(realizadas.map(chaveDaSerieDoItem))
         const projetadas = projetarRecorrencias(
           candidatasPorCartao.get(fatura.cartao_id) ?? [],
           chavesRealizadas,
@@ -261,6 +260,7 @@ export class SupabaseFaturaRepository implements FaturaRepository {
           total: Number(fatura.total) + projetadas.reduce((soma, transacao) => soma + transacao.valor, 0),
           paga: fatura.status === 'PAGA',
           pagoEm: fatura.pago_em,
+          transacoes: [...realizadas, ...projetadas],
         }
       })
       .filter((fatura) => fatura.total > 0)

@@ -20,6 +20,12 @@ export interface FaturaComoSaida {
   total: number
   paga: boolean
   pagoEm: string | null
+  /**
+   * Transações que compõem `total`: as lançadas na fatura mais as recorrências ainda
+   * não lançadas na competência (projetadas, nunca persistidas). O dashboard usa para
+   * detalhar os gastos de cartão por tipo e por categoria.
+   */
+  transacoes: TransacaoCartao[]
 }
 
 export interface DatasDaFatura {

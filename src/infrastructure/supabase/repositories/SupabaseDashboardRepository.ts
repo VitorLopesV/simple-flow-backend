@@ -2,13 +2,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { Entrada } from '../../../domain/entities/Entrada'
 import type { DashboardResumo, TransacaoRecente } from '../../../domain/entities/Dashboard'
-import type { Saida } from '../../../domain/entities/Saida'
+import type { Saida, SaidaTipo } from '../../../domain/entities/Saida'
 import type { DashboardRepository } from '../../../domain/repositories/DashboardRepository'
 import type { ID, Periodo, SeriePonto } from '../../../shared/types/common'
 import { labelCurtoPeriodo, ultimosPeriodos } from '../../../shared/utils/periodo'
 import { calcularVariacao } from '../../../shared/utils/variacao'
 import type { Database } from '../database.types'
 import { SupabaseEntradaRepository } from './SupabaseEntradaRepository'
+import { SupabaseFaturaRepository } from './SupabaseFaturaRepository'
 import { SupabaseSaidaRepository } from './SupabaseSaidaRepository'
 
 const MESES_NO_GRAFICO = 6
@@ -34,10 +35,12 @@ function somarFaturas(saidas: Saida[]): number {
 export class SupabaseDashboardRepository implements DashboardRepository {
   private readonly entradaRepository: SupabaseEntradaRepository
   private readonly saidaRepository: SupabaseSaidaRepository
+  private readonly faturaRepository: SupabaseFaturaRepository
 
   constructor(private readonly supabase: SupabaseClient<Database>) {
     this.entradaRepository = new SupabaseEntradaRepository(supabase)
     this.saidaRepository = new SupabaseSaidaRepository(supabase)
+    this.faturaRepository = new SupabaseFaturaRepository(supabase)
   }
 
   async resumo(userId: ID, periodo: Periodo): Promise<DashboardResumo> {
@@ -46,9 +49,13 @@ export class SupabaseDashboardRepository implements DashboardRepository {
     // Cada mês da janela já vem com a projeção de recorrências aplicada (mesma
     // lógica de `listar`/`resumo` de entradas/saídas) — assim o gráfico e o card
     // "no período" nunca divergem do que aparece nas telas de Entradas/Saídas.
-    const [entradasPorPeriodo, saidasPorPeriodo, categoriasRes] = await Promise.all([
+    //
+    // As faturas do mês são buscadas de novo à parte: nas saídas cada uma já chega
+    // somada numa saída só, sem as transações que o detalhe de cartões precisa.
+    const [entradasPorPeriodo, saidasPorPeriodo, faturasDoMes, categoriasRes] = await Promise.all([
       Promise.all(periodos.map((p) => this.entradaRepository.listarComProjecao(userId, p))),
       Promise.all(periodos.map((p) => this.saidaRepository.listarComProjecao(userId, p))),
+      this.faturaRepository.listarVencendoNoPeriodo(userId, periodo),
       this.supabase.from('categorias').select('id, nome, cor'),
     ])
 
@@ -92,6 +99,16 @@ export class SupabaseDashboardRepository implements DashboardRepository {
     const gastosPorCategoria = porCategoria(saidasDoMes)
     const entradasPorCategoria = porCategoria(entradasDoMes)
 
+    const transacoesCartaoDoMes = faturasDoMes.flatMap((fatura) => fatura.transacoes)
+    const agrupadoPorTipo = new Map<SaidaTipo, number>()
+    for (const transacao of transacoesCartaoDoMes) {
+      agrupadoPorTipo.set(transacao.tipo, (agrupadoPorTipo.get(transacao.tipo) ?? 0) + transacao.valor)
+    }
+    const gastosCartoesPorTipo = [...agrupadoPorTipo.entries()]
+      .map(([tipo, total]) => ({ tipo, total }))
+      .sort((a, b) => b.total - a.total)
+    const gastosCartoesPorCategoria = porCategoria(transacoesCartaoDoMes)
+
     const nomeECor = (categoriaId: string) => {
       const categoria = categoriaPorId.get(categoriaId)
       return { categoriaNome: categoria?.nome ?? 'Sem categoria', categoriaCor: categoria?.cor ?? '#94a3b8' }
@@ -130,6 +147,8 @@ export class SupabaseDashboardRepository implements DashboardRepository {
       serieFaturas,
       gastosPorCategoria,
       entradasPorCategoria,
+      gastosCartoesPorTipo,
+      gastosCartoesPorCategoria,
       transacoesRecentes,
     }
   }
