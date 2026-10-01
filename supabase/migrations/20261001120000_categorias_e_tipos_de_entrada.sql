@@ -27,6 +27,19 @@ where not exists (
   where c.nome = v.nome and c.movimento = 'ENTRADA' and c.user_id is null
 );
 
+-- Alguma delas pode já existir com a natureza antiga (produção tinha um "Outros"
+-- criado à mão com tipo RENDA): alinha a natureza das 4 ao novo modelo.
+update public.categorias c
+set tipo = case c.nome
+  when 'Renda Fixa' then 'RENDA_FIXA'
+  when 'Renda Variável' then 'RENDA_VARIAVEL'
+  when 'Investimentos' then 'INVESTIMENTO'
+  else 'OUTROS'
+end
+where c.movimento = 'ENTRADA'
+  and c.user_id is null
+  and c.nome in ('Renda Fixa', 'Renda Variável', 'Investimentos', 'Outros');
+
 -- --------------------------------------------------------- 3) tipo da entrada
 alter table public.entradas
   add column if not exists tipo text;
