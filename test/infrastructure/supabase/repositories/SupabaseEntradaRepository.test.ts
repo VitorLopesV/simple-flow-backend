@@ -16,6 +16,7 @@ function payload(sobrescritas: Partial<EntradaPayload> = {}): EntradaPayload {
     valor: 5000,
     data: '2026-08-05',
     categoriaId: 'cat-renda',
+    tipo: 'SALARIO',
     recorrente: false,
     ...sobrescritas,
   }
@@ -45,6 +46,7 @@ describe('SupabaseEntradaRepository', () => {
         valor: 1234.56,
         data: '2026-08-05',
         categoriaId: 'cat-renda',
+        tipo: 'SALARIO',
         recorrente: false,
         observacao: 'bônus',
         criadoEm: '2026-08-01T00:00:00.000Z',
@@ -109,8 +111,8 @@ describe('SupabaseEntradaRepository', () => {
   describe('listar', () => {
     const linhas = [
       linhaEntrada({ id: 'e1', descricao: 'Salário', data: '2026-08-05', categoria_id: 'cat-renda' }),
-      linhaEntrada({ id: 'e2', descricao: 'Freela', data: '2026-08-10', categoria_id: 'cat-extra', observacao: 'Site' }),
-      linhaEntrada({ id: 'e3', descricao: 'Venda', data: '2026-08-15', categoria_id: 'cat-extra' }),
+      linhaEntrada({ id: 'e2', descricao: 'Freela', data: '2026-08-10', categoria_id: 'cat-extra', tipo: 'FREELANCE', observacao: 'Site' }),
+      linhaEntrada({ id: 'e3', descricao: 'Venda', data: '2026-08-15', categoria_id: 'cat-extra', tipo: 'REEMBOLSO' }),
     ]
 
     it('pagina o resultado já ordenado', async () => {
@@ -142,6 +144,19 @@ describe('SupabaseEntradaRepository', () => {
       })
 
       expect(pagina.items.map((entrada) => entrada.id)).toEqual(['e3', 'e2'])
+    })
+
+    it('filtra por tipo', async () => {
+      const { client } = criarSupabaseFake({ entradas: porPeriodo(linhas) })
+
+      const pagina = await new SupabaseEntradaRepository(client).listar(USER_ID, {
+        periodo: AGOSTO,
+        tipo: 'FREELANCE',
+        page: 1,
+        pageSize: 20,
+      })
+
+      expect(pagina.items.map((entrada) => entrada.id)).toEqual(['e2'])
     })
 
     it('busca sem diferenciar maiúsculas na descrição e na observação', async () => {
@@ -238,6 +253,7 @@ describe('SupabaseEntradaRepository', () => {
           valor: 5000,
           data: '2026-08-05',
           categoria_id: 'cat-renda',
+          tipo: 'SALARIO',
           recorrente: false,
           observacao: null,
           user_id: USER_ID,

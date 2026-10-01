@@ -19,6 +19,7 @@ export function linhaEntrada(sobrescritas: Partial<EntradaRow> = {}): EntradaRow
     valor: 5000,
     data: '2026-08-05',
     categoria_id: 'cat-renda',
+    tipo: 'SALARIO',
     recorrente: false,
     observacao: null,
     user_id: USER_ID,

@@ -64,7 +64,7 @@ const UUID = '123e4567-e89b-12d3-a456-426614174000'
 const UUID_2 = '223e4567-e89b-12d3-a456-426614174000'
 const USUARIO = { id: 'user-1', email: 'ana@exemplo.com', nome: 'Ana' }
 
-const ENTRADA = { descricao: 'Salário', valor: 5000, data: '2026-08-05', categoriaId: UUID, recorrente: false }
+const ENTRADA = { descricao: 'Salário', valor: 5000, data: '2026-08-05', categoriaId: UUID, tipo: 'SALARIO', recorrente: false }
 const SAIDA = {
   descricao: 'Aluguel',
   valor: 1500,
@@ -154,6 +154,8 @@ const ENTRADAS_INVALIDAS: (Omit<Rota, 'acao'> & { mensagem?: string })[] = [
   { metodo: 'GET', caminho: '/api/entradas/resumo?competencia=08-2026', mensagem: 'Competência inválida, use o formato YYYY-MM.' },
   { metodo: 'GET', caminho: '/api/entradas?mes=13&ano=2026' },
   { metodo: 'POST', caminho: '/api/entradas', body: { ...ENTRADA, valor: -1 }, mensagem: 'O valor deve ser positivo.' },
+  { metodo: 'POST', caminho: '/api/entradas', body: { ...ENTRADA, tipo: 'CONTA' }, mensagem: 'Tipo de entrada inválido, use Salário, Freelance, Rendimentos ou Reembolso.' },
+  { metodo: 'GET', caminho: '/api/entradas?mes=8&ano=2026&tipo=CONTA', mensagem: 'Tipo de entrada inválido, use Salário, Freelance, Rendimentos ou Reembolso.' },
   { metodo: 'PUT', caminho: '/api/entradas/abc', body: ENTRADA, mensagem: 'Identificador inválido.' },
   { metodo: 'PUT', caminho: `/api/entradas/${UUID}`, body: { ...ENTRADA, data: '05/08/2026' }, mensagem: 'Data inválida, use o formato YYYY-MM-DD.' },
   { metodo: 'DELETE', caminho: `/api/entradas/${UUID}_2026-08`, mensagem: 'Identificador inválido.' },

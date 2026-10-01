@@ -18,6 +18,7 @@ function paraEntrada(row: EntradaRow): Entrada {
     valor: Number(row.valor),
     data: row.data,
     categoriaId: row.categoria_id,
+    tipo: row.tipo as Entrada['tipo'],
     recorrente: row.recorrente,
     observacao: row.observacao,
     criadoEm: row.criado_em,
@@ -31,6 +32,7 @@ function paraLinha(payload: EntradaPayload) {
     valor: payload.valor,
     data: payload.data,
     categoria_id: payload.categoriaId,
+    tipo: payload.tipo,
     recorrente: payload.recorrente,
     observacao: payload.observacao ?? null,
   }
@@ -75,6 +77,7 @@ export class SupabaseEntradaRepository implements EntradaRepository {
 
     const filtradas = todas
       .filter((entrada) => !filtro.categoriaId || entrada.categoriaId === filtro.categoriaId)
+      .filter((entrada) => !filtro.tipo || entrada.tipo === filtro.tipo)
       .filter(
         (entrada) =>
           !busca ||

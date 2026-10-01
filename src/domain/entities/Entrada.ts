@@ -1,5 +1,8 @@
 import type { ID } from '../../shared/types/common'
 
+/** Detalhe da entrada, independente da categoria (que é o grupo: Renda Fixa, Renda Variável, Investimentos, Outros). */
+export type EntradaTipo = 'SALARIO' | 'FREELANCE' | 'RENDIMENTOS' | 'REEMBOLSO'
+
 export interface Entrada {
   id: ID
   descricao: string
@@ -8,6 +11,7 @@ export interface Entrada {
   /** Data de competência no formato ISO `YYYY-MM-DD`. */
   data: string
   categoriaId: ID
+  tipo: EntradaTipo
   recorrente: boolean
   observacao?: string | null
   criadoEm: string

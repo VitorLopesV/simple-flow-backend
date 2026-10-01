@@ -30,7 +30,7 @@ vi.mock('../../../../src/application/use-cases/entradas/RemoverEntrada', () => (
 
 const ID = '123e4567-e89b-12d3-a456-426614174000'
 const ENTRADA = { id: ID, descricao: 'Salário', valor: 5000 }
-const PAYLOAD = { descricao: 'Salário', valor: 5000, data: '2026-08-05', categoriaId: 'cat-1', recorrente: false }
+const PAYLOAD = { descricao: 'Salário', valor: 5000, data: '2026-08-05', categoriaId: 'cat-1', tipo: 'SALARIO', recorrente: false }
 
 /** O use-case precisa receber o repositório criado com o client Supabase da própria requisição. */
 function esperarComposicao(Classe: typeof m.listar.Classe, req: ReturnType<typeof criarRequisicao>) {
@@ -48,7 +48,7 @@ describe('entradasController', () => {
       const pagina = { items: [ENTRADA], page: 2, pageSize: 10, total: 11, totalPages: 2 }
       m.listar.execute.mockResolvedValue(pagina)
       const req = criarRequisicao({
-        query: { mes: 8, ano: 2026, categoriaId: 'cat-1', busca: 'sal', page: 2, pageSize: 10 },
+        query: { mes: 8, ano: 2026, categoriaId: 'cat-1', tipo: 'SALARIO', busca: 'sal', page: 2, pageSize: 10 },
       })
       const res = criarResposta()
 
@@ -58,6 +58,7 @@ describe('entradasController', () => {
       expect(m.listar.execute).toHaveBeenCalledWith(USUARIO.id, {
         periodo: { mes: 8, ano: 2026 },
         categoriaId: 'cat-1',
+        tipo: 'SALARIO',
         busca: 'sal',
         page: 2,
         pageSize: 10,

@@ -74,9 +74,9 @@ expor ao frontend.
 | Método | Rota                   | Descrição                                                              |
 | ------ | ---------------------- | ----------------------------------------------------------------------- |
 | GET    | `/categorias`          | Lista categorias do sistema + custom do usuário                         |
-| GET    | `/entradas`            | Lista paginada (query: `mes`, `ano`, `categoriaId`, `busca`, `page`, `pageSize`) |
+| GET    | `/entradas`            | Lista paginada (query: `mes`, `ano`, `categoriaId`, `tipo`, `busca`, `page`, `pageSize`) |
 | GET    | `/entradas/resumo`     | Totalizadores do período (query: `competencia` = `YYYY-MM`)              |
-| POST   | `/entradas`            | Cria entrada                                                             |
+| POST   | `/entradas`            | Cria entrada (`categoriaId` = grupo, `tipo` = `SALARIO`/`FREELANCE`/`RENDIMENTOS`/`REEMBOLSO`) |
 | PUT    | `/entradas/:id`        | Atualiza entrada                                                         |
 | DELETE | `/entradas/:id`        | Remove entrada                                                           |
 | GET    | `/saidas`              | Lista paginada (mesmos filtros + `status`)                               |
@@ -94,6 +94,16 @@ expor ao frontend.
 | DELETE | `/cartoes/:cartaoId/transacoes/:id` | Remove o débito                                            |
 | PATCH  | `/faturas/:id/pagar`   | Marca fatura como paga                                                   |
 | GET    | `/dashboard/resumo`    | Consolidado do período + série de 6 meses (query: `competencia`)         |
+
+### Categorias e tipos
+
+Entradas e saídas seguem o mesmo modelo: a **categoria** é o grupo e o **tipo** é o detalhe.
+
+- Saídas: Despesa Fixa, Despesa Variável, Investimento + `SaidaTipo`.
+- Entradas: Renda Fixa, Renda Variável, Investimentos, Outros + `EntradaTipo` (`SALARIO`,
+  `FREELANCE`, `RENDIMENTOS`, `REEMBOLSO`). A migration `categorias_e_tipos_de_entrada` migrou as
+  entradas antigas: Salário → Renda Fixa, Freelance → Renda Variável, Rendimentos → Investimentos,
+  Reembolso → Outros (Benefício → Renda Fixa/Salário).
 
 ### `GET /saidas/resumo` — `porTipo`
 

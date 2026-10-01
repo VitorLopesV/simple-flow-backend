@@ -1,6 +1,17 @@
 import type { ID } from '../../shared/types/common'
 
-export type CategoriaTipo = 'CONTA_FIXA' | 'CONTA_VARIAVEL' | 'RENDA' | 'INVESTIMENTO'
+/**
+ * Natureza da categoria. Saídas: Despesa Fixa (CONTA_FIXA), Despesa Variável
+ * (CONTA_VARIAVEL) e Investimento. Entradas: Renda Fixa, Renda Variável,
+ * Investimentos (INVESTIMENTO) e Outros.
+ */
+export type CategoriaTipo =
+  | 'CONTA_FIXA'
+  | 'CONTA_VARIAVEL'
+  | 'RENDA_FIXA'
+  | 'RENDA_VARIAVEL'
+  | 'INVESTIMENTO'
+  | 'OUTROS'
 export type Movimento = 'ENTRADA' | 'SAIDA'
 
 export interface Categoria {

@@ -1,9 +1,10 @@
-import type { Entrada, EntradaPayload, EntradaResumo } from '../entities/Entrada'
+import type { Entrada, EntradaPayload, EntradaResumo, EntradaTipo } from '../entities/Entrada'
 import type { ID, Paginated, Periodo } from '../../shared/types/common'
 
 export interface EntradaFiltro {
   periodo: Periodo
   categoriaId?: ID | null
+  tipo?: EntradaTipo | null
   busca?: string
   page: number
   pageSize: number

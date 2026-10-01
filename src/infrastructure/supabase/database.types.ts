@@ -99,6 +99,7 @@ export type Database = {
           id: string
           observacao: string | null
           recorrente: boolean
+          tipo: string
           user_id: string
           valor: number
         }
@@ -111,6 +112,7 @@ export type Database = {
           id?: string
           observacao?: string | null
           recorrente?: boolean
+          tipo: string
           user_id: string
           valor: number
         }
@@ -123,6 +125,7 @@ export type Database = {
           id?: string
           observacao?: string | null
           recorrente?: boolean
+          tipo?: string
           user_id?: string
           valor?: number
         }

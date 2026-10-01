@@ -14,6 +14,7 @@ function payloadValido(sobrescritas: Record<string, unknown> = {}) {
     valor: 5000,
     data: '2026-09-05',
     categoriaId: CATEGORIA_ID,
+    tipo: 'FREELANCE',
     recorrente: false,
     ...sobrescritas,
   }
@@ -72,9 +73,23 @@ describe('entradaPayloadSchema', () => {
   })
 
   it('remove campo extra do resultado parseado', () => {
-    const resultado = entradaPayloadSchema.parse(payloadValido({ tipo: 'CONTA' }))
+    const resultado = entradaPayloadSchema.parse(payloadValido({ status: 'PAGO' }))
 
-    expect(resultado).not.toHaveProperty('tipo')
+    expect(resultado).not.toHaveProperty('status')
+  })
+
+  it('aceita os 4 tipos de entrada', () => {
+    for (const tipo of ['SALARIO', 'FREELANCE', 'RENDIMENTOS', 'REEMBOLSO']) {
+      expect(entradaPayloadSchema.safeParse(payloadValido({ tipo })).success).toBe(true)
+    }
+  })
+
+  it('rejeita tipo ausente ou inexistente com mensagem em português', () => {
+    const { tipo: _tipo, ...semTipo } = payloadValido()
+    const mensagem = 'Tipo de entrada inválido, use Salário, Freelance, Rendimentos ou Reembolso.'
+
+    expect(primeiraMensagem(entradaPayloadSchema.safeParse(semTipo))).toBe(mensagem)
+    expect(primeiraMensagem(entradaPayloadSchema.safeParse(payloadValido({ tipo: 'CONTA' })))).toBe(mensagem)
   })
 })
 
@@ -99,6 +114,11 @@ describe('listarEntradasQuerySchema', () => {
     expect(listarEntradasQuerySchema.safeParse(queryValida({ pageSize: '101' })).success).toBe(false)
     expect(listarEntradasQuerySchema.safeParse(queryValida({ pageSize: '100' })).success).toBe(true)
     expect(listarEntradasQuerySchema.safeParse(queryValida({ page: '0' })).success).toBe(false)
+  })
+
+  it('aceita tipo válido ou omitido e rejeita inexistente', () => {
+    expect(listarEntradasQuerySchema.parse(queryValida({ tipo: 'SALARIO' }))).toMatchObject({ tipo: 'SALARIO' })
+    expect(listarEntradasQuerySchema.safeParse(queryValida({ tipo: 'CONTA' })).success).toBe(false)
   })
 
   it('aceita categoriaId UUID ou omitido e rejeita inválido', () => {

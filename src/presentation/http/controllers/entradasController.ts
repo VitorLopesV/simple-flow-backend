@@ -5,6 +5,7 @@ import { CriarEntrada } from '../../../application/use-cases/entradas/CriarEntra
 import { ListarEntradas } from '../../../application/use-cases/entradas/ListarEntradas'
 import { RemoverEntrada } from '../../../application/use-cases/entradas/RemoverEntrada'
 import { ResumoEntradas } from '../../../application/use-cases/entradas/ResumoEntradas'
+import type { EntradaTipo } from '../../../domain/entities/Entrada'
 import { SupabaseEntradaRepository } from '../../../infrastructure/supabase/repositories/SupabaseEntradaRepository'
 import { paraPeriodo } from '../../../shared/utils/periodo'
 
@@ -14,10 +15,11 @@ function repositorio(req: Request) {
 
 export const entradasController = {
   async listar(req: Request, res: Response) {
-    const { mes, ano, categoriaId, busca, page, pageSize } = req.query as unknown as {
+    const { mes, ano, categoriaId, tipo, busca, page, pageSize } = req.query as unknown as {
       mes: number
       ano: number
       categoriaId?: string
+      tipo?: EntradaTipo
       busca?: string
       page: number
       pageSize: number
@@ -26,6 +28,7 @@ export const entradasController = {
     const resultado = await new ListarEntradas(repositorio(req)).execute(req.usuario!.id, {
       periodo: { mes, ano },
       categoriaId,
+      tipo,
       busca,
       page,
       pageSize,
