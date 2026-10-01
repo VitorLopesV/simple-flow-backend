@@ -139,13 +139,13 @@ describe('entradasController', () => {
   describe('atualizar', () => {
     it('atualiza pelo id do path com o body e responde com a entrada', async () => {
       m.atualizar.execute.mockResolvedValue(ENTRADA)
-      const req = criarRequisicao({ params: { id: ID }, body: PAYLOAD })
+      const req = criarRequisicao({ params: { id: ID }, query: { confirmar: true }, body: PAYLOAD })
       const res = criarResposta()
 
       await entradasController.atualizar(req, res)
 
       esperarComposicaoComCategorias(m.atualizar.Classe, req)
-      expect(m.atualizar.execute).toHaveBeenCalledWith(USUARIO.id, ID, PAYLOAD)
+      expect(m.atualizar.execute).toHaveBeenCalledWith(USUARIO.id, ID, PAYLOAD, { confirmar: true })
       expect(res.status).not.toHaveBeenCalled()
       expect(res.json).toHaveBeenCalledWith(ENTRADA)
     })
@@ -171,7 +171,7 @@ describe('entradasController', () => {
       await entradasController.remover(req, res)
 
       esperarComposicao(m.remover.Classe, req)
-      expect(m.remover.execute).toHaveBeenCalledWith(USUARIO.id, ID)
+      expect(m.remover.execute).toHaveBeenCalledWith(USUARIO.id, ID, { confirmar: false })
       expect(res.status).toHaveBeenCalledWith(204)
       expect(res.send).toHaveBeenCalledWith()
     })

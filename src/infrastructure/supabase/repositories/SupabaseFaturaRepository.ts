@@ -14,6 +14,7 @@ import type { ControleDeSerie } from '../../../domain/entities/Recorrencia'
 import type { DatasDaFatura, FaturaComoSaida, FaturaRepository } from '../../../domain/repositories/FaturaRepository'
 import type { ID, Periodo } from '../../../shared/types/common'
 import { limitesDoMes } from '../../../shared/utils/periodo'
+import { inicioDoMesSeguinte } from '../../../shared/utils/recorrencia'
 import type { Database } from '../database.types'
 import { paraLinhaDeControle } from './controleDeSerie'
 
@@ -296,6 +297,42 @@ export class SupabaseFaturaRepository implements FaturaRepository {
     if (!data) throw new NotFoundError('Transação do cartão')
 
     await this.recalcularTotal(data.fatura_id)
+  }
+
+  async listarTransacoesSeguintesDaSerie(userId: ID, serieId: ID, data: string): Promise<TransacaoCartao[]> {
+    const { data: linhas, error } = await this.supabase
+      .from('transacoes_cartao')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('serie_id', serieId)
+      .gte('data', inicioDoMesSeguinte(data))
+      .order('data', { ascending: true })
+
+    if (error) throw error
+    return linhas.map(paraTransacao)
+  }
+
+  async removerTransacoes(userId: ID, ids: ID[]): Promise<void> {
+    const { data, error } = await this.supabase
+      .from('transacoes_cartao')
+      .delete()
+      .eq('user_id', userId)
+      .in('id', ids)
+      .select('fatura_id')
+    if (error) throw error
+
+    for (const faturaId of new Set(data.map((linha) => linha.fatura_id))) {
+      await this.recalcularTotal(faturaId)
+    }
+  }
+
+  async marcarSerieDeTransacoesEncerrada(userId: ID, serieId: ID, encerrada: boolean): Promise<void> {
+    const { error } = await this.supabase
+      .from('transacoes_cartao')
+      .update({ serie_encerrada: encerrada })
+      .eq('user_id', userId)
+      .eq('serie_id', serieId)
+    if (error) throw error
   }
 
   /** Fatura da competência, criada como ABERTA na primeira transação do mês. */

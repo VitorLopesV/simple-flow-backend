@@ -11,7 +11,7 @@ import {
   transacaoCartaoParamsSchema,
   transacaoCartaoPayloadSchema,
 } from '../schemas/cartao.schema'
-import { idParamSchema } from '../schemas/common.schema'
+import { confirmacaoQuerySchema, idParamSchema } from '../schemas/common.schema'
 
 export const cartoesRoutes = Router()
 
@@ -31,12 +31,14 @@ cartoesRoutes.post(
 cartoesRoutes.put(
   '/:cartaoId/transacoes/:id',
   validate(transacaoCartaoParamsSchema, 'params'),
+  validate(confirmacaoQuerySchema, 'query'),
   validate(transacaoCartaoPayloadSchema),
   asyncHandler(cartoesController.atualizarTransacao),
 )
 cartoesRoutes.delete(
   '/:cartaoId/transacoes/:id',
   validate(transacaoCartaoParamsSchema, 'params'),
+  validate(confirmacaoQuerySchema, 'query'),
   asyncHandler(cartoesController.removerTransacao),
 )
 

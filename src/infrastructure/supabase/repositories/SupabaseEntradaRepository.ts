@@ -7,6 +7,7 @@ import type { EntradaFiltro, EntradaRepository } from '../../../domain/repositor
 import type { ID, Paginated, Periodo } from '../../../shared/types/common'
 import { faixaDaPagina, montarPaginado } from '../../../shared/utils/paginacao'
 import { limitesDoMes, mesAnterior } from '../../../shared/utils/periodo'
+import { inicioDoMesSeguinte } from '../../../shared/utils/recorrencia'
 import type { Database } from '../database.types'
 import { paraLinhaDeControle } from './controleDeSerie'
 
@@ -173,5 +174,32 @@ export class SupabaseEntradaRepository implements EntradaRepository {
 
     if (error) throw error
     if (!data) throw new NotFoundError('Entrada')
+  }
+
+  async listarSeguintesDaSerie(userId: ID, serieId: ID, data: string): Promise<Entrada[]> {
+    const { data: linhas, error } = await this.supabase
+      .from('entradas')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('serie_id', serieId)
+      .gte('data', inicioDoMesSeguinte(data))
+      .order('data', { ascending: true })
+
+    if (error) throw error
+    return linhas.map(paraEntrada)
+  }
+
+  async removerVarios(userId: ID, ids: ID[]): Promise<void> {
+    const { error } = await this.supabase.from('entradas').delete().eq('user_id', userId).in('id', ids)
+    if (error) throw error
+  }
+
+  async marcarSerieEncerrada(userId: ID, serieId: ID, encerrada: boolean): Promise<void> {
+    const { error } = await this.supabase
+      .from('entradas')
+      .update({ serie_encerrada: encerrada })
+      .eq('user_id', userId)
+      .eq('serie_id', serieId)
+    if (error) throw error
   }
 }

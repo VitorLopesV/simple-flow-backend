@@ -21,4 +21,9 @@ export interface SaidaRepository {
   /** Campos de `controle` ausentes mantêm o valor gravado. */
   atualizar(userId: ID, id: ID, payload: SaidaPayload, controle?: Partial<ControleDeSerie>): Promise<Saida>
   remover(userId: ID, id: ID): Promise<void>
+  /** Registros da série nos meses seguintes ao da `data` (do mais antigo para o mais novo). */
+  listarSeguintesDaSerie(userId: ID, serieId: ID, data: string): Promise<Saida[]>
+  removerVarios(userId: ID, ids: ID[]): Promise<void>
+  /** Série encerrada não é continuada pelo job de geração do mês seguinte. */
+  marcarSerieEncerrada(userId: ID, serieId: ID, encerrada: boolean): Promise<void>
 }

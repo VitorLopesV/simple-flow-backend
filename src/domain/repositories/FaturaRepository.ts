@@ -57,4 +57,10 @@ export interface FaturaRepository {
     controle?: Partial<ControleDeSerie>,
   ): Promise<TransacaoCartao>
   removerTransacao(userId: ID, id: ID): Promise<void>
+  /** Transações da série nos meses seguintes ao da `data` (da mais antiga para a mais nova). */
+  listarTransacoesSeguintesDaSerie(userId: ID, serieId: ID, data: string): Promise<TransacaoCartao[]>
+  /** Remove as transações e recalcula o total de cada fatura afetada. */
+  removerTransacoes(userId: ID, ids: ID[]): Promise<void>
+  /** Série encerrada não é continuada pelo job de geração do mês seguinte. */
+  marcarSerieDeTransacoesEncerrada(userId: ID, serieId: ID, encerrada: boolean): Promise<void>
 }

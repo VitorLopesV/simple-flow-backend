@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { AtualizarTransacaoCartao } from '../../../../src/application/use-cases/cartoes/AtualizarTransacaoCartao'
 import type { Cartao } from '../../../../src/domain/entities/Cartao'
 import type { TransacaoCartao, TransacaoCartaoPayload } from '../../../../src/domain/entities/Fatura'
-import { NotFoundError, ValidationError } from '../../../../src/domain/errors/DomainError'
+import { NotFoundError, SerieAlteradaError, ValidationError } from '../../../../src/domain/errors/DomainError'
 import {
   CATEGORIAS,
   criarCartaoRepositoryFake,
@@ -58,12 +58,17 @@ function transacao(sobrescritas: Partial<TransacaoCartao> = {}): TransacaoCartao
 
 const transacaoAtualizada = transacao({ atualizadoEm: '2026-09-16T12:00:00.000Z' })
 
-function criarRepositorios(transacaoExistente: TransacaoCartao | null, cartaoExistente: Cartao | null) {
+function criarRepositorios(
+  transacaoExistente: TransacaoCartao | null,
+  cartaoExistente: Cartao | null,
+  seguintes: TransacaoCartao[] = [],
+) {
   const cartaoRepository = criarCartaoRepositoryFake()
   cartaoRepository.buscarPorId.mockResolvedValue(cartaoExistente)
   const faturaRepository = criarFaturaRepositoryFake()
   faturaRepository.buscarTransacaoPorId.mockResolvedValue(transacaoExistente)
   faturaRepository.atualizarTransacao.mockResolvedValue(transacaoAtualizada)
+  faturaRepository.listarTransacoesSeguintesDaSerie.mockResolvedValue(seguintes)
   return { cartaoRepository, faturaRepository, categoriaRepository: criarCategoriaRepositoryFake() }
 }
 
@@ -174,5 +179,72 @@ describe('AtualizarTransacaoCartao', () => {
     const repositorios = criarRepositorios(transacao(), cartao)
 
     await expect(useCase(repositorios).execute(USER_ID, TRANSACAO_ID, payload())).resolves.toBe(transacaoAtualizada)
+  })
+
+  describe('encerrar e religar a série', () => {
+    const SERIE = 'serie-1'
+    const fixa = { categoriaId: CATEGORIAS.despesaFixa.id }
+    const recorrente = transacao({ ...fixa, recorrente: true, serieId: SERIE })
+    const outubro = transacao({ ...fixa, id: 'out', data: '2026-10-15', recorrente: true, serieId: SERIE })
+
+    it('desligar remove as transações dos meses seguintes e encerra a série', async () => {
+      const repositorios = criarRepositorios(recorrente, cartao, [outubro])
+
+      await useCase(repositorios).execute(USER_ID, TRANSACAO_ID, payload({ ...fixa, recorrente: false }))
+
+      expect(repositorios.faturaRepository.listarTransacoesSeguintesDaSerie).toHaveBeenCalledWith(USER_ID, SERIE, '2026-09-15')
+      expect(repositorios.faturaRepository.removerTransacoes).toHaveBeenCalledWith(USER_ID, ['out'])
+      expect(repositorios.faturaRepository.marcarSerieDeTransacoesEncerrada).toHaveBeenCalledWith(USER_ID, SERIE, true)
+      expect(repositorios.faturaRepository.atualizarTransacao).toHaveBeenCalled()
+    })
+
+    it('desligar com mês seguinte alterado exige confirmação', async () => {
+      const repositorios = criarRepositorios(recorrente, cartao, [{ ...outubro, editadoManualmente: true }])
+
+      await expect(
+        useCase(repositorios).execute(USER_ID, TRANSACAO_ID, payload({ ...fixa, recorrente: false })),
+      ).rejects.toBeInstanceOf(SerieAlteradaError)
+      expect(repositorios.faturaRepository.removerTransacoes).not.toHaveBeenCalled()
+      expect(repositorios.faturaRepository.atualizarTransacao).not.toHaveBeenCalled()
+
+      await useCase(repositorios).execute(USER_ID, TRANSACAO_ID, payload({ ...fixa, recorrente: false }), { confirmar: true })
+      expect(repositorios.faturaRepository.removerTransacoes).toHaveBeenCalledWith(USER_ID, ['out'])
+    })
+
+    it('desligar sem meses seguintes só encerra a série', async () => {
+      const repositorios = criarRepositorios(recorrente, cartao, [])
+
+      await useCase(repositorios).execute(USER_ID, TRANSACAO_ID, payload({ ...fixa, recorrente: false }))
+
+      expect(repositorios.faturaRepository.removerTransacoes).not.toHaveBeenCalled()
+      expect(repositorios.faturaRepository.marcarSerieDeTransacoesEncerrada).toHaveBeenCalledWith(USER_ID, SERIE, true)
+    })
+
+    it('religar reabre a série e lança o mês seguinte na fatura do mês seguinte', async () => {
+      const desligada = transacao({ ...fixa, recorrente: false, serieId: SERIE })
+      const repositorios = criarRepositorios(desligada, cartao, [])
+
+      await useCase(repositorios).execute(USER_ID, TRANSACAO_ID, payload({ ...fixa, recorrente: true }))
+
+      expect(repositorios.faturaRepository.atualizarTransacao.mock.calls[0]![4]).toMatchObject({ serieId: SERIE })
+      expect(repositorios.faturaRepository.marcarSerieDeTransacoesEncerrada).toHaveBeenCalledWith(USER_ID, SERIE, false)
+      expect(repositorios.faturaRepository.criarTransacao).toHaveBeenCalledWith(
+        USER_ID,
+        CARTAO_ID,
+        expect.objectContaining({ data: '2026-10-15', recorrente: true }),
+        { competencia: '2026-10', fechamento: '2026-10-10', vencimento: '2026-10-20' },
+        { serieId: SERIE },
+      )
+    })
+
+    it('religar uma transação sem série cria série nova; não duplica mês seguinte existente', async () => {
+      const repositorios = criarRepositorios(transacao({ ...fixa }), cartao, [])
+      await useCase(repositorios).execute(USER_ID, TRANSACAO_ID, payload({ ...fixa, recorrente: true }))
+      expect(repositorios.faturaRepository.atualizarTransacao.mock.calls[0]![4]!.serieId).toMatch(/^[0-9a-f-]{36}$/)
+
+      const comSeguinte = criarRepositorios(transacao({ ...fixa, serieId: SERIE }), cartao, [outubro])
+      await useCase(comSeguinte).execute(USER_ID, TRANSACAO_ID, payload({ ...fixa, recorrente: true }))
+      expect(comSeguinte.faturaRepository.criarTransacao).not.toHaveBeenCalled()
+    })
   })
 })

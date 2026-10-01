@@ -22,3 +22,17 @@ export function mesmoDiaNoMesSeguinte(dataIso: string): string {
 export function houveAlteracao<T extends object>(atual: T, dados: Partial<T>): boolean {
   return (Object.keys(dados) as (keyof T)[]).some((campo) => (atual[campo] ?? null) !== (dados[campo] ?? null))
 }
+
+/**
+ * Competências (YYYY-MM, sem repetição e em ordem) dos registros que o usuário
+ * alterou — removê-los ao encerrar a série exige confirmação.
+ */
+export function mesesAlterados(registros: { data: string; editadoManualmente: boolean }[]): string[] {
+  return [...new Set(registros.filter((registro) => registro.editadoManualmente).map((r) => r.data.slice(0, 7)))].sort()
+}
+
+/** Primeiro dia (ISO) do mês seguinte ao da data — a partir dele estão os "meses seguintes" de uma série. */
+export function inicioDoMesSeguinte(dataIso: string): string {
+  const [ano, mes] = dataIso.split('-').map(Number) as [number, number]
+  return new Date(Date.UTC(ano, mes, 1)).toISOString().slice(0, 10)
+}

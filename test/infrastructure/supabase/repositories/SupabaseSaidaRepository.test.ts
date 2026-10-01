@@ -392,4 +392,70 @@ describe('SupabaseSaidaRepository', () => {
       await expect(new SupabaseSaidaRepository(client).remover(USER_ID, ID)).rejects.toBe(ERRO)
     })
   })
+
+  describe('listarSeguintesDaSerie', () => {
+    it('busca os registros da série a partir do mês seguinte, do usuário, do mais antigo para o mais novo', async () => {
+      const fake = criarSupabaseFake({ saidas: [ok([linhaSaida({ id: 'out', data: '2026-10-05', serie_id: 'serie-1' })])] })
+
+      const seguintes = await new SupabaseSaidaRepository(fake.client).listarSeguintesDaSerie(USER_ID, 'serie-1', '2026-09-05')
+
+      expect(seguintes.map((registro) => [registro.id, registro.serieId])).toEqual([['out', 'serie-1']])
+      expect(fake.consultas[0]!.chamadas).toEqual([
+        ['select', '*'],
+        ['eq', 'user_id', USER_ID],
+        ['eq', 'serie_id', 'serie-1'],
+        ['gte', 'data', '2026-10-01'],
+        ['order', 'data', { ascending: true }],
+      ])
+    })
+
+    it('propaga o erro do banco', async () => {
+      const { client } = criarSupabaseFake({ saidas: [falha(ERRO)] })
+
+      await expect(new SupabaseSaidaRepository(client).listarSeguintesDaSerie(USER_ID, 'serie-1', '2026-09-05')).rejects.toBe(ERRO)
+    })
+  })
+
+  describe('removerVarios', () => {
+    it('remove só as linhas informadas do usuário', async () => {
+      const fake = criarSupabaseFake({ saidas: [ok(null)] })
+
+      await new SupabaseSaidaRepository(fake.client).removerVarios(USER_ID, ['a', 'b'])
+
+      expect(fake.consultas[0]!.chamadas).toEqual([
+        ['delete'],
+        ['eq', 'user_id', USER_ID],
+        ['in', 'id', ['a', 'b']],
+      ])
+    })
+
+    it('propaga o erro do banco', async () => {
+      const { client } = criarSupabaseFake({ saidas: [falha(ERRO)] })
+
+      await expect(new SupabaseSaidaRepository(client).removerVarios(USER_ID, ['a'])).rejects.toBe(ERRO)
+    })
+  })
+
+  describe('marcarSerieEncerrada', () => {
+    it('marca todas as linhas da série do usuário', async () => {
+      const fake = criarSupabaseFake({ saidas: [ok(null), ok(null)] })
+      const repositorio = new SupabaseSaidaRepository(fake.client)
+
+      await repositorio.marcarSerieEncerrada(USER_ID, 'serie-1', true)
+      await repositorio.marcarSerieEncerrada(USER_ID, 'serie-1', false)
+
+      expect(fake.consultas[0]!.chamadas).toEqual([
+        ['update', { serie_encerrada: true }],
+        ['eq', 'user_id', USER_ID],
+        ['eq', 'serie_id', 'serie-1'],
+      ])
+      expect(argumentos(fake.consultas[1]!, 'update')).toEqual([{ serie_encerrada: false }])
+    })
+
+    it('propaga o erro do banco', async () => {
+      const { client } = criarSupabaseFake({ saidas: [falha(ERRO)] })
+
+      await expect(new SupabaseSaidaRepository(client).marcarSerieEncerrada(USER_ID, 'serie-1', true)).rejects.toBe(ERRO)
+    })
+  })
 })

@@ -21,6 +21,11 @@ function faturaRepositorio(req: Request) {
   return new SupabaseFaturaRepository(req.supabase!)
 }
 
+/** `?confirmar=true` já validado por `confirmacaoQuerySchema`. */
+function confirmacao(req: Request) {
+  return { confirmar: (req.query as unknown as { confirmar?: boolean }).confirmar === true }
+}
+
 function categoriaRepositorio(req: Request) {
   return new SupabaseCategoriaRepository(req.supabase!)
 }
@@ -70,12 +75,12 @@ export const cartoesController = {
 
   async atualizarTransacao(req: Request, res: Response) {
     const atualizar = new AtualizarTransacaoCartao(cartaoRepositorio(req), faturaRepositorio(req), categoriaRepositorio(req))
-    const transacao = await atualizar.execute(req.usuario!.id, req.params.id, req.body)
+    const transacao = await atualizar.execute(req.usuario!.id, req.params.id, req.body, confirmacao(req))
     res.json(transacao)
   },
 
   async removerTransacao(req: Request, res: Response) {
-    await new RemoverTransacaoCartao(faturaRepositorio(req)).execute(req.usuario!.id, req.params.id)
+    await new RemoverTransacaoCartao(faturaRepositorio(req)).execute(req.usuario!.id, req.params.id, confirmacao(req))
     res.status(204).send()
   },
 }

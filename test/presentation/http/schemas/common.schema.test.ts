@@ -1,7 +1,11 @@
 import type { SafeParseReturnType } from 'zod'
 import { describe, expect, it } from 'vitest'
 
-import { idParamSchema, resumoQuerySchema } from '../../../../src/presentation/http/schemas/common.schema'
+import {
+  confirmacaoQuerySchema,
+  idParamSchema,
+  resumoQuerySchema,
+} from '../../../../src/presentation/http/schemas/common.schema'
 
 const UUID = '123e4567-e89b-12d3-a456-426614174000'
 
@@ -38,5 +42,19 @@ describe('resumoQuerySchema', () => {
 
   it('rejeita competencia ausente', () => {
     expect(resumoQuerySchema.safeParse({}).success).toBe(false)
+  })
+})
+
+describe('confirmacaoQuerySchema', () => {
+  it('converte "true" em true e "false" ou ausente em false', () => {
+    expect(confirmacaoQuerySchema.parse({ confirmar: 'true' })).toEqual({ confirmar: true })
+    expect(confirmacaoQuerySchema.parse({ confirmar: 'false' })).toEqual({ confirmar: false })
+    expect(confirmacaoQuerySchema.parse({})).toEqual({ confirmar: false })
+  })
+
+  it('rejeita outros valores com mensagem em português', () => {
+    expect(primeiraMensagem(confirmacaoQuerySchema.safeParse({ confirmar: 'sim' }))).toBe(
+      'Confirmação inválida, use true ou false.',
+    )
   })
 })

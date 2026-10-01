@@ -210,7 +210,7 @@ describe('cartoesController', () => {
       await cartoesController.removerTransacao(req, res)
 
       expect(m.removerTransacao.Classe).toHaveBeenCalledWith(repositorioFaturaCriado())
-      expect(m.removerTransacao.execute).toHaveBeenCalledWith(USUARIO.id, ID)
+      expect(m.removerTransacao.execute).toHaveBeenCalledWith(USUARIO.id, ID, { confirmar: false })
       expect(res.status).toHaveBeenCalledWith(204)
     })
   })
@@ -238,7 +238,7 @@ describe('cartoesController', () => {
 
     it('atualizarTransacao: atualiza pelo id da transação e responde com ela', async () => {
       m.atualizarTransacao.execute.mockResolvedValue(TRANSACAO)
-      const req = criarRequisicao({ params: { cartaoId: CARTAO_ID, id: ID }, body: TRANSACAO_PAYLOAD })
+      const req = criarRequisicao({ params: { cartaoId: CARTAO_ID, id: ID }, query: { confirmar: true }, body: TRANSACAO_PAYLOAD })
       const res = criarResposta()
 
       await cartoesController.atualizarTransacao(req, res)
@@ -248,7 +248,7 @@ describe('cartoesController', () => {
         repositorioFaturaCriado(),
         repositorioCategoriaCriado(),
       )
-      expect(m.atualizarTransacao.execute).toHaveBeenCalledWith(USUARIO.id, ID, TRANSACAO_PAYLOAD)
+      expect(m.atualizarTransacao.execute).toHaveBeenCalledWith(USUARIO.id, ID, TRANSACAO_PAYLOAD, { confirmar: true })
       expect(res.status).not.toHaveBeenCalled()
       expect(res.json).toHaveBeenCalledWith(TRANSACAO)
     })

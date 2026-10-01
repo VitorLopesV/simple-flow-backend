@@ -146,13 +146,13 @@ describe('saidasController', () => {
   describe('atualizar', () => {
     it('atualiza pelo id do path com o body e responde com a saída', async () => {
       m.atualizar.execute.mockResolvedValue(SAIDA)
-      const req = criarRequisicao({ params: { id: ID }, body: PAYLOAD })
+      const req = criarRequisicao({ params: { id: ID }, query: { confirmar: true }, body: PAYLOAD })
       const res = criarResposta()
 
       await saidasController.atualizar(req, res)
 
       esperarComposicaoComCategorias(m.atualizar.Classe, req)
-      expect(m.atualizar.execute).toHaveBeenCalledWith(USUARIO.id, ID, PAYLOAD)
+      expect(m.atualizar.execute).toHaveBeenCalledWith(USUARIO.id, ID, PAYLOAD, { confirmar: true })
       expect(res.json).toHaveBeenCalledWith(SAIDA)
     })
 
@@ -175,7 +175,7 @@ describe('saidasController', () => {
       await saidasController.remover(req, res)
 
       esperarComposicao(m.remover.Classe, req)
-      expect(m.remover.execute).toHaveBeenCalledWith(USUARIO.id, ID)
+      expect(m.remover.execute).toHaveBeenCalledWith(USUARIO.id, ID, { confirmar: false })
       expect(res.status).toHaveBeenCalledWith(204)
       expect(res.send).toHaveBeenCalledWith()
     })

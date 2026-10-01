@@ -5,7 +5,7 @@ import type { Request, Response } from 'express'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createApp } from '../../../../src/app'
-import { NotFoundError, UnauthorizedError } from '../../../../src/domain/errors/DomainError'
+import { NotFoundError, SerieAlteradaError, UnauthorizedError } from '../../../../src/domain/errors/DomainError'
 
 /**
  * Sobe a aplicação real (createApp → routes → routers → authMiddleware/validate/asyncHandler
@@ -124,15 +124,20 @@ const ROTAS_PROTEGIDAS: Rota[] = [
   { metodo: 'POST', caminho: '/api/entradas', acao: 'entradas.criar', body: ENTRADA },
   { metodo: 'PUT', caminho: `/api/entradas/${UUID}`, acao: 'entradas.atualizar', body: ENTRADA },
   { metodo: 'DELETE', caminho: `/api/entradas/${UUID}`, acao: 'entradas.remover' },
+  { metodo: 'DELETE', caminho: `/api/entradas/${UUID}?confirmar=true`, acao: 'entradas.remover' },
+  { metodo: 'PUT', caminho: `/api/entradas/${UUID}?confirmar=true`, acao: 'entradas.atualizar', body: ENTRADA },
   { metodo: 'GET', caminho: '/api/saidas/resumo?competencia=2026-08', acao: 'saidas.resumo' },
   { metodo: 'GET', caminho: '/api/saidas?mes=8&ano=2026', acao: 'saidas.listar' },
   { metodo: 'POST', caminho: '/api/saidas', acao: 'saidas.criar', body: SAIDA },
   { metodo: 'PUT', caminho: `/api/saidas/${UUID}`, acao: 'saidas.atualizar', body: SAIDA },
   { metodo: 'DELETE', caminho: `/api/saidas/${UUID}`, acao: 'saidas.remover' },
+  { metodo: 'DELETE', caminho: `/api/saidas/${UUID}?confirmar=true`, acao: 'saidas.remover' },
+  { metodo: 'PUT', caminho: `/api/saidas/${UUID}?confirmar=true`, acao: 'saidas.atualizar', body: SAIDA },
   { metodo: 'GET', caminho: '/api/cartoes/faturas?competencia=2026-08', acao: 'cartoes.listarComFaturas' },
   { metodo: 'POST', caminho: `/api/cartoes/${UUID}/transacoes`, acao: 'cartoes.criarTransacao', body: TRANSACAO },
   { metodo: 'PUT', caminho: `/api/cartoes/${UUID}/transacoes/${UUID_2}`, acao: 'cartoes.atualizarTransacao', body: TRANSACAO },
   { metodo: 'DELETE', caminho: `/api/cartoes/${UUID}/transacoes/${UUID_2}`, acao: 'cartoes.removerTransacao' },
+  { metodo: 'DELETE', caminho: `/api/cartoes/${UUID}/transacoes/${UUID_2}?confirmar=true`, acao: 'cartoes.removerTransacao' },
   { metodo: 'GET', caminho: '/api/cartoes', acao: 'cartoes.listar' },
   { metodo: 'POST', caminho: '/api/cartoes', acao: 'cartoes.criar', body: CARTAO },
   { metodo: 'PUT', caminho: `/api/cartoes/${UUID}`, acao: 'cartoes.atualizar', body: CARTAO },
@@ -159,7 +164,13 @@ const ENTRADAS_INVALIDAS: (Omit<Rota, 'acao'> & { mensagem?: string })[] = [
   { metodo: 'PUT', caminho: '/api/entradas/abc', body: ENTRADA, mensagem: 'Identificador inválido.' },
   { metodo: 'PUT', caminho: `/api/entradas/${UUID}`, body: { ...ENTRADA, data: '05/08/2026' }, mensagem: 'Data inválida, use o formato YYYY-MM-DD.' },
   { metodo: 'DELETE', caminho: `/api/entradas/${UUID}_2026-08`, mensagem: 'Identificador inválido.' },
+  { metodo: 'DELETE', caminho: `/api/entradas/${UUID}?confirmar=sim`, mensagem: 'Confirmação inválida, use true ou false.' },
+  { metodo: 'PUT', caminho: `/api/entradas/${UUID}?confirmar=1`, body: ENTRADA, mensagem: 'Confirmação inválida, use true ou false.' },
   { metodo: 'GET', caminho: '/api/saidas/resumo', },
+  { metodo: 'DELETE', caminho: `/api/saidas/${UUID}?confirmar=sim`, mensagem: 'Confirmação inválida, use true ou false.' },
+  { metodo: 'PUT', caminho: `/api/saidas/${UUID}?confirmar=x`, body: SAIDA, mensagem: 'Confirmação inválida, use true ou false.' },
+  { metodo: 'DELETE', caminho: `/api/cartoes/${UUID}/transacoes/${UUID_2}?confirmar=sim`, mensagem: 'Confirmação inválida, use true ou false.' },
+  { metodo: 'PUT', caminho: `/api/cartoes/${UUID}/transacoes/${UUID_2}?confirmar=sim`, body: TRANSACAO, mensagem: 'Confirmação inválida, use true ou false.' },
   { metodo: 'GET', caminho: '/api/saidas?mes=8&ano=2026&status=ATRASADO' },
   {
     metodo: 'POST',
@@ -343,6 +354,26 @@ describe('rotas HTTP', () => {
 
       expect(corpo.body).toEqual({ nome: 'Invasor' })
       expect(m.obterUsuarioPorToken).toHaveBeenCalledWith('token-valido')
+    })
+  })
+
+  describe('confirmação de encerramento de série', () => {
+    it('entrega ao controller confirmar convertido para booleano', async () => {
+      const comConfirmacao = await requisitar('DELETE', `/api/saidas/${UUID}?confirmar=true`)
+      const semConfirmacao = await requisitar('DELETE', `/api/saidas/${UUID}`)
+
+      expect(comConfirmacao.corpo.query).toEqual({ confirmar: true })
+      expect(semConfirmacao.corpo.query).toEqual({ confirmar: false })
+    })
+
+    it('responde 409 com mesesAfetados quando o controller lança SerieAlteradaError', async () => {
+      m.saidas.remover!.mockRejectedValueOnce(new SerieAlteradaError(['2026-10']))
+
+      const { status, corpo } = await requisitar('DELETE', `/api/saidas/${UUID}`)
+
+      expect(status).toBe(409)
+      expect(corpo.mesesAfetados).toEqual(['2026-10'])
+      expect(corpo.message).toMatch(/meses anteriores não são afetados/)
     })
   })
 

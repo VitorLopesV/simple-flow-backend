@@ -24,6 +24,9 @@ export function criarEntradaRepositoryFake() {
     criar: vi.fn(),
     atualizar: vi.fn(),
     remover: vi.fn(),
+    listarSeguintesDaSerie: vi.fn(),
+    removerVarios: vi.fn(),
+    marcarSerieEncerrada: vi.fn(),
   } satisfies EntradaRepository
 }
 
@@ -36,6 +39,9 @@ export function criarSaidaRepositoryFake() {
     criar: vi.fn(),
     atualizar: vi.fn(),
     remover: vi.fn(),
+    listarSeguintesDaSerie: vi.fn(),
+    removerVarios: vi.fn(),
+    marcarSerieEncerrada: vi.fn(),
   } satisfies SaidaRepository
 }
 
@@ -58,6 +64,9 @@ export function criarFaturaRepositoryFake() {
     criarTransacao: vi.fn(),
     atualizarTransacao: vi.fn(),
     removerTransacao: vi.fn(),
+    listarTransacoesSeguintesDaSerie: vi.fn(),
+    removerTransacoes: vi.fn(),
+    marcarSerieDeTransacoesEncerrada: vi.fn(),
   } satisfies FaturaRepository
 }
 

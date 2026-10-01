@@ -17,3 +17,9 @@ export interface ControleDeSerie {
    */
   editadoManualmente: boolean
 }
+
+/** Opções de quem encerra uma série (exclusão ou desativação da recorrência). */
+export interface OpcoesDeEncerramento {
+  /** true = remove os meses seguintes mesmo que o usuário tenha alterado algum deles. */
+  confirmar?: boolean
+}

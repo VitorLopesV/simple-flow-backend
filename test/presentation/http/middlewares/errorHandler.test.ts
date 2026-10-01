@@ -5,6 +5,7 @@ import { z, ZodError } from 'zod'
 import {
   ConflictError,
   NotFoundError,
+  SerieAlteradaError,
   UnauthorizedError,
   ValidationError,
 } from '../../../../src/domain/errors/DomainError'
@@ -146,5 +147,19 @@ describe('errorHandler', () => {
 
       expect(next).not.toHaveBeenCalled()
     }
+  })
+
+  it('inclui os detalhes do erro de domínio no corpo — SerieAlteradaError devolve 409 com mesesAfetados', () => {
+    const { req, res, next, status, json } = criarContexto()
+
+    errorHandler(new SerieAlteradaError(['2026-10', '2026-11']), req, res, next)
+
+    expect(status).toHaveBeenCalledWith(409)
+    expect(json).toHaveBeenCalledWith({
+      message:
+        'Os meses seguintes desta série foram alterados (2026-10, 2026-11). ' +
+        'Confirme para removê-los; os meses anteriores não são afetados.',
+      mesesAfetados: ['2026-10', '2026-11'],
+    })
   })
 })

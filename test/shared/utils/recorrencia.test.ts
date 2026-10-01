@@ -4,6 +4,8 @@ import type { CategoriaTipo } from '../../../src/domain/entities/Categoria'
 import {
   categoriaPermiteRecorrencia,
   houveAlteracao,
+  inicioDoMesSeguinte,
+  mesesAlterados,
   mesmoDiaNoMesSeguinte,
 } from '../../../src/shared/utils/recorrencia'
 
@@ -52,5 +54,32 @@ describe('houveAlteracao', () => {
 
   it('ignora campos do registro que não vieram nos dados', () => {
     expect(houveAlteracao(atual, {})).toBe(false)
+  })
+})
+
+describe('mesesAlterados', () => {
+  it('lista, sem repetir e em ordem, as competências dos registros editados', () => {
+    expect(
+      mesesAlterados([
+        { data: '2026-11-10', editadoManualmente: true },
+        { data: '2026-10-10', editadoManualmente: false },
+        { data: '2026-12-10', editadoManualmente: true },
+        { data: '2026-11-20', editadoManualmente: true },
+      ]),
+    ).toEqual(['2026-11', '2026-12'])
+  })
+
+  it('vazio quando nenhum foi editado', () => {
+    expect(mesesAlterados([{ data: '2026-10-10', editadoManualmente: false }])).toEqual([])
+  })
+})
+
+describe('inicioDoMesSeguinte', () => {
+  it.each([
+    ['2026-09-10', '2026-10-01'],
+    ['2026-12-31', '2027-01-01'],
+    ['2026-01-31', '2026-02-01'],
+  ])('%s → %s', (data, esperado) => {
+    expect(inicioDoMesSeguinte(data)).toBe(esperado)
   })
 })

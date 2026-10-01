@@ -10,7 +10,7 @@ import { DomainError } from '../../../domain/errors/DomainError'
  */
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   if (error instanceof DomainError) {
-    res.status(error.status).json({ message: error.message })
+    res.status(error.status).json({ message: error.message, ...error.detalhes })
     return
   }
 

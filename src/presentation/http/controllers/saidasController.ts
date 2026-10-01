@@ -14,6 +14,11 @@ function repositorio(req: Request) {
   return new SupabaseSaidaRepository(req.supabase!)
 }
 
+/** `?confirmar=true` já validado por `confirmacaoQuerySchema`. */
+function confirmacao(req: Request) {
+  return { confirmar: (req.query as unknown as { confirmar?: boolean }).confirmar === true }
+}
+
 function categoriaRepositorio(req: Request) {
   return new SupabaseCategoriaRepository(req.supabase!)
 }
@@ -54,12 +59,12 @@ export const saidasController = {
 
   async atualizar(req: Request, res: Response) {
     const atualizar = new AtualizarSaida(repositorio(req), categoriaRepositorio(req))
-    const saida = await atualizar.execute(req.usuario!.id, req.params.id, req.body)
+    const saida = await atualizar.execute(req.usuario!.id, req.params.id, req.body, confirmacao(req))
     res.json(saida)
   },
 
   async remover(req: Request, res: Response) {
-    await new RemoverSaida(repositorio(req)).execute(req.usuario!.id, req.params.id)
+    await new RemoverSaida(repositorio(req)).execute(req.usuario!.id, req.params.id, confirmacao(req))
     res.status(204).send()
   },
 }

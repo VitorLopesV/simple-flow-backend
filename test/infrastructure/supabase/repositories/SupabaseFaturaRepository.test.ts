@@ -603,4 +603,90 @@ describe('SupabaseFaturaRepository', () => {
       await expect(new SupabaseFaturaRepository(client).removerTransacao(USER_ID, 'tr-1')).rejects.toBe(ERRO)
     })
   })
+
+  describe('listarTransacoesSeguintesDaSerie', () => {
+    it('busca as transações da série a partir do mês seguinte, do usuário, da mais antiga para a mais nova', async () => {
+      const fake = criarSupabaseFake({
+        transacoes_cartao: [ok([linhaTransacao({ id: 'out', data: '2026-10-03', serie_id: 'serie-1' })])],
+      })
+
+      const seguintes = await new SupabaseFaturaRepository(fake.client).listarTransacoesSeguintesDaSerie(
+        USER_ID,
+        'serie-1',
+        '2026-09-03',
+      )
+
+      expect(seguintes.map((t) => t.id)).toEqual(['out'])
+      expect(fake.consultas[0]!.chamadas).toEqual([
+        ['select', '*'],
+        ['eq', 'user_id', USER_ID],
+        ['eq', 'serie_id', 'serie-1'],
+        ['gte', 'data', '2026-10-01'],
+        ['order', 'data', { ascending: true }],
+      ])
+    })
+
+    it('propaga o erro do banco', async () => {
+      const { client } = criarSupabaseFake({ transacoes_cartao: [falha(ERRO)] })
+
+      await expect(
+        new SupabaseFaturaRepository(client).listarTransacoesSeguintesDaSerie(USER_ID, 'serie-1', '2026-09-03'),
+      ).rejects.toBe(ERRO)
+    })
+  })
+
+  describe('removerTransacoes', () => {
+    it('remove as transações do usuário e recalcula uma vez cada fatura afetada', async () => {
+      const fake = criarSupabaseFake({
+        transacoes_cartao: (consulta) =>
+          ehSomaDoTotal(consulta)
+            ? ok([{ valor: 10 }])
+            : ok([{ fatura_id: 'fat-set' }, { fatura_id: 'fat-out' }, { fatura_id: 'fat-out' }]),
+        faturas: () => ok(null),
+      })
+
+      await new SupabaseFaturaRepository(fake.client).removerTransacoes(USER_ID, ['a', 'b', 'c'])
+
+      const [remocao] = fake.consultasDe('transacoes_cartao')
+      expect(remocao!.chamadas).toEqual([
+        ['delete'],
+        ['eq', 'user_id', USER_ID],
+        ['in', 'id', ['a', 'b', 'c']],
+        ['select', 'fatura_id'],
+      ])
+      const atualizacoes = fake.consultasDe('faturas').map((consulta) => argumentos(consulta, 'eq'))
+      expect(atualizacoes).toEqual([
+        ['id', 'fat-set'],
+        ['id', 'fat-out'],
+      ])
+    })
+
+    it('propaga o erro do banco', async () => {
+      const { client } = criarSupabaseFake({ transacoes_cartao: [falha(ERRO)] })
+
+      await expect(new SupabaseFaturaRepository(client).removerTransacoes(USER_ID, ['a'])).rejects.toBe(ERRO)
+    })
+  })
+
+  describe('marcarSerieDeTransacoesEncerrada', () => {
+    it('marca todas as transações da série do usuário', async () => {
+      const fake = criarSupabaseFake({ transacoes_cartao: [ok(null)] })
+
+      await new SupabaseFaturaRepository(fake.client).marcarSerieDeTransacoesEncerrada(USER_ID, 'serie-1', true)
+
+      expect(fake.consultas[0]!.chamadas).toEqual([
+        ['update', { serie_encerrada: true }],
+        ['eq', 'user_id', USER_ID],
+        ['eq', 'serie_id', 'serie-1'],
+      ])
+    })
+
+    it('propaga o erro do banco', async () => {
+      const { client } = criarSupabaseFake({ transacoes_cartao: [falha(ERRO)] })
+
+      await expect(
+        new SupabaseFaturaRepository(client).marcarSerieDeTransacoesEncerrada(USER_ID, 'serie-1', false),
+      ).rejects.toBe(ERRO)
+    })
+  })
 })

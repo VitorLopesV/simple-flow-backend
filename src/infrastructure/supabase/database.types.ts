@@ -100,6 +100,7 @@ export type Database = {
           id: string
           observacao: string | null
           recorrente: boolean
+          serie_encerrada: boolean
           serie_id: string | null
           tipo: string
           user_id: string
@@ -115,6 +116,7 @@ export type Database = {
           id?: string
           observacao?: string | null
           recorrente?: boolean
+          serie_encerrada?: boolean
           serie_id?: string | null
           tipo: string
           user_id: string
@@ -130,6 +132,7 @@ export type Database = {
           id?: string
           observacao?: string | null
           recorrente?: boolean
+          serie_encerrada?: boolean
           serie_id?: string | null
           tipo?: string
           user_id?: string
@@ -228,6 +231,7 @@ export type Database = {
           observacao: string | null
           pago_em: string | null
           recorrente: boolean
+          serie_encerrada: boolean
           serie_id: string | null
           status: string
           tipo: string
@@ -249,6 +253,7 @@ export type Database = {
           observacao?: string | null
           pago_em?: string | null
           recorrente?: boolean
+          serie_encerrada?: boolean
           serie_id?: string | null
           status?: string
           tipo?: string
@@ -270,6 +275,7 @@ export type Database = {
           observacao?: string | null
           pago_em?: string | null
           recorrente?: boolean
+          serie_encerrada?: boolean
           serie_id?: string | null
           status?: string
           tipo?: string
@@ -308,6 +314,7 @@ export type Database = {
           observacao: string | null
           parcela_atual: number
           recorrente: boolean
+          serie_encerrada: boolean
           serie_id: string | null
           tipo: string
           total_parcelas: number
@@ -327,6 +334,7 @@ export type Database = {
           observacao?: string | null
           parcela_atual?: number
           recorrente?: boolean
+          serie_encerrada?: boolean
           serie_id?: string | null
           tipo?: string
           total_parcelas?: number
@@ -346,6 +354,7 @@ export type Database = {
           observacao?: string | null
           parcela_atual?: number
           recorrente?: boolean
+          serie_encerrada?: boolean
           serie_id?: string | null
           tipo?: string
           total_parcelas?: number

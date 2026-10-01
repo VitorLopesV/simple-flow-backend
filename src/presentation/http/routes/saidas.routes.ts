@@ -4,7 +4,7 @@ import { asyncHandler } from '../../../shared/utils/asyncHandler'
 import { saidasController } from '../controllers/saidasController'
 import { authMiddleware } from '../middlewares/authMiddleware'
 import { validate } from '../middlewares/validate'
-import { idParamSchema, resumoQuerySchema } from '../schemas/common.schema'
+import { confirmacaoQuerySchema, idParamSchema, resumoQuerySchema } from '../schemas/common.schema'
 import { listarSaidasQuerySchema, saidaPayloadSchema } from '../schemas/saida.schema'
 
 export const saidasRoutes = Router()
@@ -17,7 +17,13 @@ saidasRoutes.post('/', validate(saidaPayloadSchema), asyncHandler(saidasControll
 saidasRoutes.put(
   '/:id',
   validate(idParamSchema, 'params'),
+  validate(confirmacaoQuerySchema, 'query'),
   validate(saidaPayloadSchema),
   asyncHandler(saidasController.atualizar),
 )
-saidasRoutes.delete('/:id', validate(idParamSchema, 'params'), asyncHandler(saidasController.remover))
+saidasRoutes.delete(
+  '/:id',
+  validate(idParamSchema, 'params'),
+  validate(confirmacaoQuerySchema, 'query'),
+  asyncHandler(saidasController.remover),
+)

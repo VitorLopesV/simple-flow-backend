@@ -135,6 +135,12 @@ outros); o que liga os meses é o `serieId` devolvido em entradas, saídas e tra
   saída nasce `PENDENTE`; no cartão, vai para a fatura do mês seguinte).
 - O nome é imutável enquanto o registro for recorrente.
 - Não há mais projeção em tempo de leitura nem ids sintéticos (`<uuid>_YYYY-MM` → 422).
+- **Encerrar a série**: `DELETE` de um mês remove ele e os meses seguintes; `PUT` com
+  `recorrente: false` (ou trocando para categoria não fixa) mantém o registro e remove os seguintes.
+  Os meses anteriores nunca mudam. Se algum mês seguinte foi alterado (inclusive marcado como
+  `PAGO`), a API responde **409** com `{ message, mesesAfetados: ['YYYY-MM', ...] }` e não remove
+  nada; repita com `?confirmar=true` para remover. Religar (`recorrente: true`) volta a gerar o mês
+  seguinte. Vale para `/entradas/:id`, `/saidas/:id` e `/cartoes/:cartaoId/transacoes/:id`.
 
 Os formatos de request/response estão tipados em `frontend/src/types` e espelhados nas
 entidades de `src/domain/entities`.

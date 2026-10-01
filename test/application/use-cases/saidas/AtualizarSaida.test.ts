@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AtualizarSaida } from '../../../../src/application/use-cases/saidas/AtualizarSaida'
 import type { Saida, SaidaPayload } from '../../../../src/domain/entities/Saida'
-import { ConflictError, NotFoundError, ValidationError } from '../../../../src/domain/errors/DomainError'
+import {
+  ConflictError,
+  NotFoundError,
+  SerieAlteradaError,
+  ValidationError,
+} from '../../../../src/domain/errors/DomainError'
 import { CATEGORIAS, criarCategoriaRepositoryFake, criarSaidaRepositoryFake } from '../../../helpers/repositoriosFake'
 
 const USER_ID = 'user-1'
@@ -45,8 +50,12 @@ function payload(sobrescritas: Partial<SaidaPayload> = {}): SaidaPayload {
   }
 }
 
-function criarRepositorios(existentes: Saida[] = []) {
+function criarRepositorios(existentes: Saida[] = [], seguintes: Saida[] = []) {
   const saidas = criarSaidaRepositoryFake()
+  saidas.listarSeguintesDaSerie.mockResolvedValue(seguintes)
+  saidas.criar.mockImplementation(async (_userId: string, dados: SaidaPayload, controle = {}) =>
+    saida({ ...dados, ...controle, id: 'nova' }),
+  )
   saidas.buscarPorId.mockImplementation(async (_userId: string, id: string) => existentes.find((s) => s.id === id) ?? null)
   saidas.atualizar.mockImplementation(async (_userId: string, id: string, dados: SaidaPayload, controle = {}) =>
     saida({ ...existentes.find((s) => s.id === id), ...dados, ...controle }),
@@ -223,5 +232,102 @@ describe('AtualizarSaida', () => {
     expect(saidas.buscarPorId.mock.calls[0]![0]).toBe(USER_ID)
     expect(categorias.buscarPorId.mock.calls[0]![0]).toBe(USER_ID)
     expect(saidas.atualizar.mock.calls[0]![0]).toBe(USER_ID)
+  })
+
+  describe('desligar a recorrência', () => {
+    const setembro = saida({ data: '2026-09-10', recorrente: true, serieId: SERIE })
+    const outubro = saida({ id: 'out', data: '2026-10-10', recorrente: true, serieId: SERIE })
+    const desligar = payload({ data: '2026-09-10' })
+
+    it('mantém o registro, remove os meses seguintes e encerra a série', async () => {
+      const { saidas, categorias } = criarRepositorios([setembro], [outubro])
+
+      const atualizada = await new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, desligar)
+
+      expect(saidas.listarSeguintesDaSerie).toHaveBeenCalledWith(USER_ID, SERIE, '2026-09-10')
+      expect(saidas.removerVarios).toHaveBeenCalledWith(USER_ID, ['out'])
+      expect(saidas.marcarSerieEncerrada).toHaveBeenCalledWith(USER_ID, SERIE, true)
+      expect(atualizada).toMatchObject({ id: ID_SAIDA, recorrente: false })
+    })
+
+    it('trocar para Despesa Variável conta como desativação', async () => {
+      const { saidas, categorias } = criarRepositorios([setembro], [outubro])
+
+      await new AtualizarSaida(saidas, categorias).execute(
+        USER_ID,
+        ID_SAIDA,
+        payload({ data: '2026-09-10', recorrente: true, categoriaId: CATEGORIAS.despesaVariavel.id }),
+      )
+
+      expect(saidas.removerVarios).toHaveBeenCalledWith(USER_ID, ['out'])
+      expect(saidas.marcarSerieEncerrada).toHaveBeenCalledWith(USER_ID, SERIE, true)
+    })
+
+    it('com mês seguinte alterado, exige confirmação antes de gravar qualquer coisa', async () => {
+      const { saidas, categorias } = criarRepositorios([setembro], [{ ...outubro, editadoManualmente: true }])
+
+      const execucao = new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, desligar)
+
+      await expect(execucao).rejects.toBeInstanceOf(SerieAlteradaError)
+      await expect(execucao).rejects.toMatchObject({ detalhes: { mesesAfetados: ['2026-10'] } })
+      expect(saidas.removerVarios).not.toHaveBeenCalled()
+      expect(saidas.atualizar).not.toHaveBeenCalled()
+    })
+
+    it('com confirmação, remove os meses alterados e atualiza', async () => {
+      const { saidas, categorias } = criarRepositorios([setembro], [{ ...outubro, editadoManualmente: true }])
+
+      await new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, desligar, { confirmar: true })
+
+      expect(saidas.removerVarios).toHaveBeenCalledWith(USER_ID, ['out'])
+      expect(saidas.atualizar).toHaveBeenCalled()
+    })
+
+    it('sem meses seguintes, só encerra a série', async () => {
+      const { saidas, categorias } = criarRepositorios([setembro], [])
+
+      await new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, desligar)
+
+      expect(saidas.removerVarios).not.toHaveBeenCalled()
+      expect(saidas.marcarSerieEncerrada).toHaveBeenCalledWith(USER_ID, SERIE, true)
+    })
+  })
+
+  describe('religar a recorrência', () => {
+    it('reabre a série e volta a criar o mês seguinte, pendente', async () => {
+      const desligada = saida({ data: '2026-09-10', recorrente: false, serieId: SERIE, status: 'PAGO', pagoEm: '2026-09-10' })
+      const { saidas, categorias } = criarRepositorios([desligada], [])
+
+      await new AtualizarSaida(saidas, categorias).execute(
+        USER_ID,
+        ID_SAIDA,
+        payload({ data: '2026-09-10', recorrente: true, status: 'PAGO' }),
+      )
+
+      expect(saidas.atualizar.mock.calls[0]![3]).toMatchObject({ serieId: SERIE })
+      expect(saidas.marcarSerieEncerrada).toHaveBeenCalledWith(USER_ID, SERIE, false)
+      expect(saidas.criar).toHaveBeenCalledWith(
+        USER_ID,
+        expect.objectContaining({ data: '2026-10-10', status: 'PENDENTE', pagoEm: null, recorrente: true }),
+        { serieId: SERIE },
+      )
+    })
+
+    it('saída que nunca foi de série ganha uma série nova; não duplica mês seguinte existente', async () => {
+      const { saidas, categorias } = criarRepositorios([saida()], [])
+
+      await new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, payload({ recorrente: true }))
+
+      expect(saidas.atualizar.mock.calls[0]![3]!.serieId).toMatch(/^[0-9a-f-]{36}$/)
+      expect(saidas.criar).toHaveBeenCalledTimes(1)
+
+      const comSeguinte = criarRepositorios([saida({ serieId: SERIE })], [saida({ id: 'out', data: '2026-09-10' })])
+      await new AtualizarSaida(comSeguinte.saidas, comSeguinte.categorias).execute(
+        USER_ID,
+        ID_SAIDA,
+        payload({ recorrente: true }),
+      )
+      expect(comSeguinte.saidas.criar).not.toHaveBeenCalled()
+    })
   })
 })
