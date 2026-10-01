@@ -390,7 +390,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      gerar_recorrencias_mes_seguinte: {
+        Args: { referencia?: string }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never

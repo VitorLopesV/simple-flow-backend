@@ -111,6 +111,8 @@ O `total` de `faturas` é sempre recalculado como a soma das transações (`reca
 
 Não existe projeção em tempo de leitura: cada mês de uma série recorrente é uma linha gravada e independente, ligada às outras só por `serie_id` (`ControleDeSerie` em `domain/entities/Recorrencia.ts`). `recorrente = true` só em categoria fixa (`categoriaPermiteRecorrencia`: `CONTA_FIXA`/`RENDA_FIXA`). Os use-cases `Criar*` gravam o original + o mês seguinte (`mesmoDiaNoMesSeguinte`); os `Atualizar*` editam só o registro, marcam `editado_manualmente` quando algo muda (`houveAlteracao`) e mantêm a descrição enquanto for recorrente. `serie_id`/`editado_manualmente` nunca vêm do payload — os repositórios recebem um `controle?: Partial<ControleDeSerie>` à parte.
 
+O mês seguinte dos meses seguintes é criado pelo job `gerar-recorrencias-mes-seguinte` (pg_cron, 03h UTC) chamando a function SQL `gerar_recorrencias_mes_seguinte` (migration `job_gerar_recorrencias`) — ela replica em SQL `mesmoDiaNoMesSeguinte`, `saidaDoMesSeguinte` e `calcularDatasFatura`; mudou a regra num lado, mude no outro. É SECURITY INVOKER com EXECUTE revogado de `anon`/`authenticated` (roda como `postgres` pelo cron).
+
 Encerramento (`Remover*` e desligar a recorrência em `Atualizar*`): remove o mês (só no `Remover*`) e os seguintes (`listarSeguintesDaSerie`), nunca os anteriores, e marca a série com `serie_encerrada = true` para o job não recriá-la a partir de um mês anterior; religar desmarca. Se algum mês seguinte tem `editado_manualmente`, lança `SerieAlteradaError` (409 com `mesesAfetados` — único erro com campo extra além de `message`, via `DomainError.detalhes`) até vir `?confirmar=true` (`confirmacaoQuerySchema`). A confirmação é checada **antes** de qualquer escrita.
 
 ## Testes

@@ -135,6 +135,11 @@ outros); o que liga os meses é o `serieId` devolvido em entradas, saídas e tra
   saída nasce `PENDENTE`; no cartão, vai para a fatura do mês seguinte).
 - O nome é imutável enquanto o registro for recorrente.
 - Não há mais projeção em tempo de leitura nem ids sintéticos (`<uuid>_YYYY-MM` → 422).
+- **Mês seguinte automático**: a function SQL `public.gerar_recorrencias_mes_seguinte(referencia date)`
+  roda todo dia às 03h UTC (meia-noite em São Paulo) via `pg_cron` (job
+  `gerar-recorrencias-mes-seguinte`) e copia para o mês seguinte os registros recorrentes do mês
+  corrente que ainda não têm continuação. É idempotente e ignora séries encerradas. Para rodar à
+  mão: `select public.gerar_recorrencias_mes_seguinte();` (ou com uma data de referência).
 - **Encerrar a série**: `DELETE` de um mês remove ele e os meses seguintes; `PUT` com
   `recorrente: false` (ou trocando para categoria não fixa) mantém o registro e remove os seguintes.
   Os meses anteriores nunca mudam. Se algum mês seguinte foi alterado (inclusive marcado como
