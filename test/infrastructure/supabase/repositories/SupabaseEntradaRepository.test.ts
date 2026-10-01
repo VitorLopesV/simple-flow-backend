@@ -22,23 +22,32 @@ function payload(sobrescritas: Partial<EntradaPayload> = {}): EntradaPayload {
   }
 }
 
-/** Responde às duas queries de `listarComProjecao`: as linhas do período e as candidatas a recorrência (`lt`). */
-function porPeriodo(linhas: EntradaRow[], candidatas: EntradaRow[] = []) {
+/** Responde à query de `listarDoPeriodo` com as linhas dentro do intervalo, ordenadas como o `.order('data', desc)` pede. */
+function porPeriodo(linhas: EntradaRow[]) {
   return (consulta: ConsultaRegistrada) => {
-    if (usou(consulta, 'lt')) return ok(candidatas)
     const [, inicio] = argumentos(consulta, 'gte')!
     const [, fim] = argumentos(consulta, 'lte')!
-    return ok(linhas.filter((linha) => linha.data >= String(inicio) && linha.data <= String(fim)))
+    return ok(
+      linhas
+        .filter((linha) => linha.data >= String(inicio) && linha.data <= String(fim))
+        .sort((a, b) => b.data.localeCompare(a.data)),
+    )
   }
 }
 
 describe('SupabaseEntradaRepository', () => {
-  describe('listarComProjecao', () => {
+  describe('listarDoPeriodo', () => {
     it('mapeia as linhas de snake_case para camelCase, convertendo valor para número', async () => {
-      const linha = linhaEntrada({ valor: '1234.56' as unknown as number, observacao: 'bônus' })
+      const linha = linhaEntrada({
+        valor: '1234.56' as unknown as number,
+        observacao: 'bônus',
+        recorrente: true,
+        serie_id: 'serie-1',
+        editado_manualmente: true,
+      })
       const { client } = criarSupabaseFake({ entradas: porPeriodo([linha]) })
 
-      const [entrada] = await new SupabaseEntradaRepository(client).listarComProjecao(USER_ID, AGOSTO)
+      const [entrada] = await new SupabaseEntradaRepository(client).listarDoPeriodo(USER_ID, AGOSTO)
 
       expect(entrada).toEqual({
         id: 'ent-1',
@@ -47,64 +56,41 @@ describe('SupabaseEntradaRepository', () => {
         data: '2026-08-05',
         categoriaId: 'cat-renda',
         tipo: 'SALARIO',
-        recorrente: false,
+        recorrente: true,
         observacao: 'bônus',
         criadoEm: '2026-08-01T00:00:00.000Z',
         atualizadoEm: '2026-08-02T00:00:00.000Z',
+        serieId: 'serie-1',
+        editadoManualmente: true,
       })
     })
 
-    it('consulta o mês inteiro e as candidatas recorrentes anteriores, sempre filtrando por user_id', async () => {
+    it('consulta só o mês informado, filtrando por user_id e ordenando da mais recente para a mais antiga', async () => {
       const fake = criarSupabaseFake({ entradas: porPeriodo([]) })
 
-      await new SupabaseEntradaRepository(fake.client).listarComProjecao(USER_ID, AGOSTO)
+      await new SupabaseEntradaRepository(fake.client).listarDoPeriodo(USER_ID, AGOSTO)
 
-      const [doPeriodo, candidatas] = fake.consultasDe('entradas')
-      expect(doPeriodo!.chamadas).toEqual([
+      expect(fake.consultasDe('entradas')).toHaveLength(1)
+      expect(fake.consultas[0]!.chamadas).toEqual([
         ['select', '*'],
         ['eq', 'user_id', USER_ID],
         ['gte', 'data', '2026-08-01'],
         ['lte', 'data', '2026-08-31'],
-      ])
-      expect(candidatas!.chamadas).toEqual([
-        ['select', '*'],
-        ['eq', 'user_id', USER_ID],
-        ['eq', 'recorrente', true],
-        ['lt', 'data', '2026-08-01'],
+        ['order', 'data', { ascending: false }],
       ])
     })
 
-    it('projeta a série recorrente sem lançamento no mês e ordena da data mais recente para a mais antiga', async () => {
-      const real = linhaEntrada({ id: 'real', descricao: 'Freela', data: '2026-08-02', valor: 300 })
-      const origem = linhaEntrada({ id: 'origem', data: '2026-07-20', recorrente: true })
-      const { client } = criarSupabaseFake({ entradas: porPeriodo([real], [origem]) })
+    it('não projeta nada: um mês sem registros fica vazio mesmo com série recorrente antes dele', async () => {
+      const julho = linhaEntrada({ id: 'jul', data: '2026-07-05', recorrente: true, serie_id: 'serie-1' })
+      const { client } = criarSupabaseFake({ entradas: porPeriodo([julho]) })
 
-      const entradas = await new SupabaseEntradaRepository(client).listarComProjecao(USER_ID, AGOSTO)
-
-      expect(entradas.map((entrada) => entrada.id)).toEqual(['origem_2026-08', 'real'])
-      expect(entradas[0]).toMatchObject({ data: '2026-08-20', origemRecorrenciaId: 'origem', valor: 5000 })
+      await expect(new SupabaseEntradaRepository(client).listarDoPeriodo(USER_ID, AGOSTO)).resolves.toEqual([])
     })
 
-    it('não projeta a série que já tem lançamento real no mês', async () => {
-      const real = linhaEntrada({ id: 'real', data: '2026-08-05', recorrente: true })
-      const origem = linhaEntrada({ id: 'origem', data: '2026-07-05', recorrente: true })
-      const { client } = criarSupabaseFake({ entradas: porPeriodo([real], [origem]) })
+    it('propaga o erro da consulta', async () => {
+      const { client } = criarSupabaseFake({ entradas: [falha(ERRO)] })
 
-      const entradas = await new SupabaseEntradaRepository(client).listarComProjecao(USER_ID, AGOSTO)
-
-      expect(entradas.map((entrada) => entrada.id)).toEqual(['real'])
-    })
-
-    it('propaga o erro da consulta do período', async () => {
-      const { client } = criarSupabaseFake({ entradas: [falha(ERRO), ok([])] })
-
-      await expect(new SupabaseEntradaRepository(client).listarComProjecao(USER_ID, AGOSTO)).rejects.toBe(ERRO)
-    })
-
-    it('propaga o erro da consulta de candidatas a recorrência', async () => {
-      const { client } = criarSupabaseFake({ entradas: [ok([]), falha(ERRO)] })
-
-      await expect(new SupabaseEntradaRepository(client).listarComProjecao(USER_ID, AGOSTO)).rejects.toBe(ERRO)
+      await expect(new SupabaseEntradaRepository(client).listarDoPeriodo(USER_ID, AGOSTO)).rejects.toBe(ERRO)
     })
   })
 
@@ -262,6 +248,14 @@ describe('SupabaseEntradaRepository', () => {
       expect(usou(fake.consultas[0]!, 'single')).toBe(true)
     })
 
+    it('grava o serie_id informado no controle da série', async () => {
+      const fake = criarSupabaseFake({ entradas: [ok(linhaEntrada())] })
+
+      await new SupabaseEntradaRepository(fake.client).criar(USER_ID, payload({ recorrente: true }), { serieId: 'serie-1' })
+
+      expect(argumentos(fake.consultas[0]!, 'insert')![0]).toMatchObject({ recorrente: true, serie_id: 'serie-1', user_id: USER_ID })
+    })
+
     it('mantém a observação informada', async () => {
       const fake = criarSupabaseFake({ entradas: [ok(linhaEntrada())] })
 
@@ -288,6 +282,18 @@ describe('SupabaseEntradaRepository', () => {
       expect(argumentos(consulta, 'update')![0]).toMatchObject({ descricao: 'Novo', categoria_id: 'cat-renda' })
       expect(consulta.chamadas).toContainEqual(['eq', 'id', ID])
       expect(consulta.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    })
+
+    it('grava editado_manualmente só quando informado no controle', async () => {
+      const fake = criarSupabaseFake({ entradas: [ok(linhaEntrada()), ok(linhaEntrada())] })
+      const repositorio = new SupabaseEntradaRepository(fake.client)
+
+      await repositorio.atualizar(USER_ID, ID, payload(), { editadoManualmente: true })
+      await repositorio.atualizar(USER_ID, ID, payload())
+
+      expect(argumentos(fake.consultas[0]!, 'update')![0]).toMatchObject({ editado_manualmente: true })
+      expect(argumentos(fake.consultas[1]!, 'update')![0]).not.toHaveProperty('editado_manualmente')
+      expect(argumentos(fake.consultas[1]!, 'update')![0]).not.toHaveProperty('serie_id')
     })
 
     it('lança NotFoundError quando nenhuma linha é atualizada', async () => {

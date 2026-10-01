@@ -12,6 +12,7 @@ const m = vi.hoisted(() => {
   return {
     RepositorioCartao: vi.fn(function (client: unknown) { return { repositorio: 'cartoes', client } }),
     RepositorioFatura: vi.fn(function (client: unknown) { return { repositorio: 'faturas', client } }),
+    RepositorioCategoria: vi.fn(function (client: unknown) { return { repositorio: 'categorias', client } }),
     listar: useCase(),
     listarFaturas: useCase(),
     criar: useCase(),
@@ -26,6 +27,9 @@ const m = vi.hoisted(() => {
 
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseCartaoRepository', () => ({
   SupabaseCartaoRepository: m.RepositorioCartao,
+}))
+vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseCategoriaRepository', () => ({
+  SupabaseCategoriaRepository: m.RepositorioCategoria,
 }))
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseFaturaRepository', () => ({
   SupabaseFaturaRepository: m.RepositorioFatura,
@@ -75,6 +79,10 @@ const TRANSACAO_PAYLOAD = {
 
 function repositorioCartaoCriado() {
   return m.RepositorioCartao.mock.results[0]!.value
+}
+
+function repositorioCategoriaCriado() {
+  return m.RepositorioCategoria.mock.results[0]!.value
 }
 
 function repositorioFaturaCriado() {
@@ -217,7 +225,12 @@ describe('cartoesController', () => {
 
       expect(m.RepositorioCartao).toHaveBeenCalledWith(req.supabase)
       expect(m.RepositorioFatura).toHaveBeenCalledWith(req.supabase)
-      expect(m.criarTransacao.Classe).toHaveBeenCalledWith(repositorioCartaoCriado(), repositorioFaturaCriado())
+      expect(m.RepositorioCategoria).toHaveBeenCalledWith(req.supabase)
+      expect(m.criarTransacao.Classe).toHaveBeenCalledWith(
+        repositorioCartaoCriado(),
+        repositorioFaturaCriado(),
+        repositorioCategoriaCriado(),
+      )
       expect(m.criarTransacao.execute).toHaveBeenCalledWith(USUARIO.id, CARTAO_ID, TRANSACAO_PAYLOAD)
       expect(res.status).toHaveBeenCalledWith(201)
       expect(res.json).toHaveBeenCalledWith(TRANSACAO)
@@ -230,7 +243,11 @@ describe('cartoesController', () => {
 
       await cartoesController.atualizarTransacao(req, res)
 
-      expect(m.atualizarTransacao.Classe).toHaveBeenCalledWith(repositorioCartaoCriado(), repositorioFaturaCriado())
+      expect(m.atualizarTransacao.Classe).toHaveBeenCalledWith(
+        repositorioCartaoCriado(),
+        repositorioFaturaCriado(),
+        repositorioCategoriaCriado(),
+      )
       expect(m.atualizarTransacao.execute).toHaveBeenCalledWith(USUARIO.id, ID, TRANSACAO_PAYLOAD)
       expect(res.status).not.toHaveBeenCalled()
       expect(res.json).toHaveBeenCalledWith(TRANSACAO)

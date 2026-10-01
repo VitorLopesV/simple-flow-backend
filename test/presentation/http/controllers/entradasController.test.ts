@@ -11,6 +11,7 @@ const m = vi.hoisted(() => {
   }
   return {
     Repositorio: vi.fn(function (client: unknown) { return { repositorio: 'entradas', client } }),
+    RepositorioCategoria: vi.fn(function (client: unknown) { return { repositorio: 'categorias', client } }),
     listar: useCase(),
     resumo: useCase(),
     criar: useCase(),
@@ -19,6 +20,9 @@ const m = vi.hoisted(() => {
   }
 })
 
+vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseCategoriaRepository', () => ({
+  SupabaseCategoriaRepository: m.RepositorioCategoria,
+}))
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseEntradaRepository', () => ({
   SupabaseEntradaRepository: m.Repositorio,
 }))
@@ -36,6 +40,13 @@ const PAYLOAD = { descricao: 'Salário', valor: 5000, data: '2026-08-05', catego
 function esperarComposicao(Classe: typeof m.listar.Classe, req: ReturnType<typeof criarRequisicao>) {
   expect(m.Repositorio).toHaveBeenCalledWith(req.supabase)
   expect(Classe).toHaveBeenCalledWith(m.Repositorio.mock.results[0]!.value)
+}
+
+/** Criar/atualizar também recebem o repositório de categorias, para validar a recorrência. */
+function esperarComposicaoComCategorias(Classe: typeof m.listar.Classe, req: ReturnType<typeof criarRequisicao>) {
+  expect(m.Repositorio).toHaveBeenCalledWith(req.supabase)
+  expect(m.RepositorioCategoria).toHaveBeenCalledWith(req.supabase)
+  expect(Classe).toHaveBeenCalledWith(m.Repositorio.mock.results[0]!.value, m.RepositorioCategoria.mock.results[0]!.value)
 }
 
 describe('entradasController', () => {
@@ -109,7 +120,7 @@ describe('entradasController', () => {
 
       await entradasController.criar(req, res)
 
-      esperarComposicao(m.criar.Classe, req)
+      esperarComposicaoComCategorias(m.criar.Classe, req)
       expect(m.criar.execute).toHaveBeenCalledWith(USUARIO.id, PAYLOAD)
       expect(res.status).toHaveBeenCalledWith(201)
       expect(res.json).toHaveBeenCalledWith(ENTRADA)
@@ -133,7 +144,7 @@ describe('entradasController', () => {
 
       await entradasController.atualizar(req, res)
 
-      esperarComposicao(m.atualizar.Classe, req)
+      esperarComposicaoComCategorias(m.atualizar.Classe, req)
       expect(m.atualizar.execute).toHaveBeenCalledWith(USUARIO.id, ID, PAYLOAD)
       expect(res.status).not.toHaveBeenCalled()
       expect(res.json).toHaveBeenCalledWith(ENTRADA)

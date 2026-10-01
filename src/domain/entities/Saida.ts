@@ -1,4 +1,5 @@
 import type { ID } from '../../shared/types/common'
+import type { ControleDeSerie } from './Recorrencia'
 
 export type SaidaStatus = 'PAGO' | 'PENDENTE'
 export type FormaPagamento = 'DINHEIRO' | 'PIX' | 'DEBITO' | 'BOLETO' | 'CARTAO_CREDITO'
@@ -14,7 +15,7 @@ export type SaidaTipo =
   | 'FARMACIA'
   | 'OUTROS'
 
-export interface Saida {
+export interface Saida extends ControleDeSerie {
   id: ID
   descricao: string
   /** Valor em BRL, sempre positivo. */
@@ -41,17 +42,9 @@ export interface Saida {
   atualizadoEm: string
   /** true = gerada automaticamente a partir da fatura de um cartão (não editável/removível diretamente). */
   automatica: boolean
-  /**
-   * Preenchido só nas ocorrências futuras projetadas a partir de um lançamento
-   * recorrente (ver `shared/utils/recorrencia.ts`) — nunca persistido, recalculado
-   * a cada leitura. Editar uma dessas ocorrências (ver `AtualizarSaida`) materializa
-   * uma linha própria para aquele mês, independente do original em situação, data
-   * de pagamento e valor.
-   */
-  origemRecorrenciaId?: ID
 }
 
-export type SaidaPayload = Omit<Saida, 'id' | 'criadoEm' | 'atualizadoEm' | 'automatica'>
+export type SaidaPayload = Omit<Saida, 'id' | 'criadoEm' | 'atualizadoEm' | 'automatica' | keyof ControleDeSerie>
 
 export interface SaidaResumo {
   total: number

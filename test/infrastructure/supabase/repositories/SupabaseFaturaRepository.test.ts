@@ -39,9 +39,6 @@ function payload(sobrescritas: Partial<TransacaoCartaoPayload> = {}): TransacaoC
   }
 }
 
-/** Query de candidatas a recorrência: a única de `transacoes_cartao` que usa `lt`. */
-const ehCandidatas = (consulta: ConsultaRegistrada) => usou(consulta, 'lt')
-
 /** Query do `recalcularTotal`: seleciona só a coluna `valor`. */
 const ehSomaDoTotal = (consulta: ConsultaRegistrada) => argumentos(consulta, 'select')?.[0] === 'valor'
 
@@ -54,7 +51,6 @@ describe('SupabaseFaturaRepository', () => {
     function cenario({
       cartoes = ok([linhaCartao()]) as RespostaSupabase,
       faturas = ok([]) as RespostaSupabase,
-      candidatas = ok([]) as RespostaSupabase,
       transacoes = [] as TransacaoRow[],
       erroTransacoes = null as unknown,
     } = {}) {
@@ -62,7 +58,6 @@ describe('SupabaseFaturaRepository', () => {
         cartoes: () => cartoes,
         faturas: () => faturas,
         transacoes_cartao: (consulta) => {
-          if (ehCandidatas(consulta)) return candidatas
           if (erroTransacoes) return falha(erroTransacoes)
           const [, ids] = argumentos(consulta, 'in') as [string, string[]]
           return ok(transacoes.filter((transacao) => ids.includes(transacao.fatura_id)))
@@ -96,16 +91,11 @@ describe('SupabaseFaturaRepository', () => {
         ['eq', 'competencia', '2026-08'],
         ['in', 'cartao_id', ['cartao-1']],
       ])
-      const [candidatas, daFatura] = fake.consultasDe('transacoes_cartao')
-      expect(candidatas!.chamadas).toEqual([
+      // Sem projeção: a única consulta de transações é a das faturas reais da competência.
+      expect(fake.consultasDe('transacoes_cartao')).toHaveLength(1)
+      expect(fake.consultasDe('transacoes_cartao')[0]!.chamadas).toEqual([
         ['select', '*'],
         ['eq', 'user_id', USER_ID],
-        ['eq', 'recorrente', true],
-        ['in', 'cartao_id', ['cartao-1']],
-        ['lt', 'data', '2026-08-01'],
-      ])
-      expect(daFatura!.chamadas).toEqual([
-        ['select', '*'],
         ['in', 'fatura_id', ['fat-1']],
         ['order', 'data', { ascending: false }],
       ])
@@ -123,7 +113,9 @@ describe('SupabaseFaturaRepository', () => {
       const { client } = cenario({
         cartoes: ok([linhaCartao({ limite: 5000 })]),
         faturas: ok([linhaFatura({ competencia: '2026-08', total: '1000' as unknown as number, fechamento: '2026-08-10', vencimento: '2026-08-20' })]),
-        transacoes: [linhaTransacao({ valor: '1000' as unknown as number, observacao: 'feira' })],
+        transacoes: [
+          linhaTransacao({ valor: '1000' as unknown as number, observacao: 'feira', serie_id: 'serie-1', recorrente: true }),
+        ],
       })
 
       const [resultado] = await new SupabaseFaturaRepository(client).listarComFaturas(USER_ID, { periodo: AGOSTO })
@@ -162,10 +154,12 @@ describe('SupabaseFaturaRepository', () => {
               tipo: 'ALIMENTACAO',
               parcelaAtual: 1,
               totalParcelas: 1,
-              recorrente: false,
+              recorrente: true,
               observacao: 'feira',
               criadoEm: '2026-08-15T12:00:00.000Z',
               atualizadoEm: '2026-08-15T12:00:00.000Z',
+              serieId: 'serie-1',
+              editadoManualmente: false,
             },
           ],
         },
@@ -173,61 +167,30 @@ describe('SupabaseFaturaRepository', () => {
       })
     })
 
-    it('devolve fatura nula e uso zero para cartão sem fatura nem recorrência no mês', async () => {
+    it('devolve fatura nula e uso zero para cartão sem fatura no mês — sem fatura virtual nem projeção', async () => {
       const fake = cenario()
 
       const resultado = await new SupabaseFaturaRepository(fake.client).listarComFaturas(USER_ID, { periodo: AGOSTO })
 
       expect(resultado).toEqual([{ cartao: expect.objectContaining({ id: 'cartao-1' }), fatura: null, usoLimite: 0 }])
-      // Sem fatura real não há por que buscar transações por fatura_id.
-      expect(fake.consultasDe('transacoes_cartao')).toHaveLength(1)
+      // Sem fatura real não há por que buscar transações.
+      expect(fake.consultasDe('transacoes_cartao')).toHaveLength(0)
     })
 
-    it('sintetiza uma fatura virtual ABERTA com as recorrências projetadas quando não há fatura real', async () => {
+    it('usa o total gravado da fatura e só as transações dela', async () => {
       const { client } = cenario({
-        candidatas: ok([linhaTransacao({ id: 'spotify', descricao: 'Spotify', data: '2026-07-05', valor: 25, recorrente: true })]),
+        faturas: ok([linhaFatura({ competencia: '2026-08', total: 225 })]),
+        transacoes: [
+          linhaTransacao({ id: 'mercado', valor: 200 }),
+          linhaTransacao({ id: 'netflix', valor: 25, recorrente: true, serie_id: 'serie-1' }),
+          linhaTransacao({ id: 'outra-fatura', fatura_id: 'fat-2', valor: 999 }),
+        ],
       })
 
       const [resultado] = await new SupabaseFaturaRepository(client).listarComFaturas(USER_ID, { periodo: AGOSTO })
 
-      expect(resultado!.fatura).toMatchObject({
-        id: 'fat_virtual_cartao-1_2026-08',
-        cartaoId: 'cartao-1',
-        competencia: '2026-08',
-        fechamento: '2026-08-10',
-        vencimento: '2026-08-20',
-        total: 25,
-        status: 'ABERTA',
-        pagoEm: null,
-      })
-      expect(resultado!.fatura!.transacoes).toEqual([
-        expect.objectContaining({
-          id: 'spotify_2026-08',
-          faturaId: 'fat_virtual_cartao-1_2026-08',
-          data: '2026-08-05',
-          origemRecorrenciaId: 'spotify',
-        }),
-      ])
-      expect(resultado!.usoLimite).toBeCloseTo(0.5)
-    })
-
-    it('soma as recorrências projetadas ao total da fatura real, sem projetar a série já lançada', async () => {
-      const { client } = cenario({
-        faturas: ok([linhaFatura({ competencia: '2026-08', total: 200 })]),
-        transacoes: [linhaTransacao({ id: 'mercado', descricao: 'Mercado', valor: 200, recorrente: true })],
-        candidatas: ok([
-          linhaTransacao({ id: 'mercado-jul', descricao: 'Mercado', data: '2026-07-15', recorrente: true }),
-          linhaTransacao({ id: 'netflix', descricao: 'Netflix', data: '2026-07-01', valor: 40, recorrente: true }),
-        ]),
-      })
-
-      const [resultado] = await new SupabaseFaturaRepository(client).listarComFaturas(USER_ID, { periodo: AGOSTO })
-
-      expect(resultado!.fatura!.total).toBe(240)
-      expect(resultado!.fatura!.transacoes.map((transacao) => [transacao.id, transacao.faturaId])).toEqual([
-        ['mercado', 'fat-1'],
-        ['netflix_2026-08', 'fat-1'],
-      ])
+      expect(resultado!.fatura!.total).toBe(225)
+      expect(resultado!.fatura!.transacoes.map((transacao) => transacao.id)).toEqual(['mercado', 'netflix'])
     })
 
     it('usa uso do limite 0 para cartão sem limite', async () => {
@@ -245,7 +208,6 @@ describe('SupabaseFaturaRepository', () => {
     it.each([
       ['cartões', { cartoes: falha(ERRO) }],
       ['faturas', { faturas: falha(ERRO) }],
-      ['candidatas a recorrência', { candidatas: falha(ERRO) }],
       ['transações da fatura', { faturas: ok([linhaFatura()]), erroTransacoes: ERRO }],
     ])('propaga o erro da consulta de %s', async (_nome, sobrescritas) => {
       const { client } = cenario(sobrescritas)
@@ -259,13 +221,12 @@ describe('SupabaseFaturaRepository', () => {
       faturas = ok([linhaFatura()]) as RespostaSupabase,
       cartoes = ok([{ id: 'cartao-1', nome: 'Nubank' }]) as RespostaSupabase,
       transacoes = ok([]) as RespostaSupabase,
-      candidatas = ok([]) as RespostaSupabase,
       categoria = ok({ id: 'cat-var' }) as RespostaSupabase,
     } = {}) {
       return criarSupabaseFake({
         faturas: () => faturas,
         cartoes: () => cartoes,
-        transacoes_cartao: (consulta) => (ehCandidatas(consulta) ? candidatas : transacoes),
+        transacoes_cartao: () => transacoes,
         categorias: () => categoria,
       })
     }
@@ -313,7 +274,7 @@ describe('SupabaseFaturaRepository', () => {
       ])
     })
 
-    it('filtra pelo usuário e pelo intervalo de vencimento, buscando candidatas desde a competência mais antiga', async () => {
+    it('filtra pelo usuário e pelo intervalo de vencimento, sem buscar candidatas a recorrência', async () => {
       const fake = cenario({
         faturas: ok([
           linhaFatura({ id: 'fat-1', competencia: '2026-07' }),
@@ -334,55 +295,40 @@ describe('SupabaseFaturaRepository', () => {
         ['eq', 'user_id', USER_ID],
         ['in', 'id', ['cartao-1', 'cartao-2']],
       ])
-      const [daFatura, candidatas] = fake.consultasDe('transacoes_cartao')
-      expect(daFatura!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
-      expect(daFatura!.chamadas).toContainEqual(['in', 'fatura_id', ['fat-1', 'fat-2']])
-      expect(candidatas!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
-      expect(candidatas!.chamadas).toContainEqual(['lt', 'data', '2026-06-01'])
+      expect(fake.consultasDe('transacoes_cartao')).toHaveLength(1)
+      expect(fake.consultasDe('transacoes_cartao')[0]!.chamadas).toEqual([
+        ['select', '*'],
+        ['eq', 'user_id', USER_ID],
+        ['in', 'fatura_id', ['fat-1', 'fat-2']],
+      ])
     })
 
-    it('soma ao total as recorrências ainda não lançadas na competência da fatura', async () => {
-      const { client } = cenario({
-        faturas: ok([linhaFatura({ competencia: '2026-07', total: 200 })]),
-        transacoes: ok([linhaTransacao({ descricao: 'Mercado', data: '2026-07-15' })]),
-        candidatas: ok([
-          linhaTransacao({ id: 'mercado-jun', descricao: 'Mercado', data: '2026-06-15', recorrente: true }),
-          linhaTransacao({ id: 'netflix', descricao: 'Netflix', data: '2026-06-01', valor: 40, recorrente: true }),
-        ]),
-      })
-
-      const [fatura] = await new SupabaseFaturaRepository(client).listarVencendoNoPeriodo(USER_ID, AGOSTO)
-
-      expect(fatura!.total).toBe(240)
-    })
-
-    it('devolve as transações que compõem o total: as lançadas na fatura e as recorrências projetadas', async () => {
+    it('devolve o total gravado e as transações de cada fatura — inclusive a recorrência lançada no mês', async () => {
       const { client } = cenario({
         faturas: ok([
-          linhaFatura({ id: 'fat-1', competencia: '2026-07', total: 200 }),
+          linhaFatura({ id: 'fat-1', competencia: '2026-07', total: 240 }),
           linhaFatura({ id: 'fat-2', cartao_id: 'cartao-2', competencia: '2026-07', total: 30 }),
         ]),
         transacoes: ok([
           linhaTransacao({ id: 'mercado-jul', descricao: 'Mercado', data: '2026-07-15', valor: 200 }),
+          linhaTransacao({ id: 'netflix-jul', descricao: 'Netflix', valor: 40, tipo: 'LAZER', recorrente: true, serie_id: 's' }),
           linhaTransacao({ id: 'uber-jul', fatura_id: 'fat-2', cartao_id: 'cartao-2', descricao: 'Uber', valor: 30 }),
-        ]),
-        candidatas: ok([
-          linhaTransacao({ id: 'netflix', descricao: 'Netflix', data: '2026-06-01', valor: 40, tipo: 'LAZER', recorrente: true }),
         ]),
       })
 
       const [fatura1, fatura2] = await new SupabaseFaturaRepository(client).listarVencendoNoPeriodo(USER_ID, AGOSTO)
 
-      expect(fatura1!.transacoes.map((t) => t.id)).toEqual(['mercado-jul', 'netflix_2026-07'])
+      expect(fatura1!.total).toBe(240)
+      expect(fatura1!.transacoes.map((t) => t.id)).toEqual(['mercado-jul', 'netflix-jul'])
       expect(fatura1!.transacoes.reduce((soma, t) => soma + t.valor, 0)).toBe(fatura1!.total)
-      // Cada fatura só leva as próprias transações, e a recorrência de outro cartão não entra.
       expect(fatura2!.transacoes.map((t) => t.id)).toEqual(['uber-jul'])
     })
 
-    it('deixa de fora faturas zeradas', async () => {
-      const { client } = cenario({ faturas: ok([linhaFatura({ total: 0 })]) })
+    it('deixa de fora faturas zeradas, sem outras consultas quando todas estão zeradas', async () => {
+      const fake = cenario({ faturas: ok([linhaFatura({ total: 0 })]) })
 
-      await expect(new SupabaseFaturaRepository(client).listarVencendoNoPeriodo(USER_ID, AGOSTO)).resolves.toEqual([])
+      await expect(new SupabaseFaturaRepository(fake.client).listarVencendoNoPeriodo(USER_ID, AGOSTO)).resolves.toEqual([])
+      expect(fake.consultas).toHaveLength(1)
     })
 
     it('usa "Cartão" e categoria vazia quando cartão ou categoria não são encontrados', async () => {
@@ -397,7 +343,6 @@ describe('SupabaseFaturaRepository', () => {
       ['faturas', { faturas: falha(ERRO) }],
       ['cartões', { cartoes: falha(ERRO) }],
       ['transações', { transacoes: falha(ERRO) }],
-      ['candidatas a recorrência', { candidatas: falha(ERRO) }],
       ['categoria', { categoria: falha(ERRO) }],
     ])('propaga o erro da consulta de %s', async (_nome, sobrescritas) => {
       const { client } = cenario(sobrescritas)

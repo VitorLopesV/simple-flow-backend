@@ -10,12 +10,12 @@ import type {
   TransacaoCartao,
   TransacaoCartaoPayload,
 } from '../../../domain/entities/Fatura'
+import type { ControleDeSerie } from '../../../domain/entities/Recorrencia'
 import type { DatasDaFatura, FaturaComoSaida, FaturaRepository } from '../../../domain/repositories/FaturaRepository'
 import type { ID, Periodo } from '../../../shared/types/common'
-import { calcularDatasFatura } from '../../../shared/utils/fatura'
-import { limitesDoMes, paraPeriodo } from '../../../shared/utils/periodo'
-import { chaveDaSerieDoItem, projetarRecorrencias } from '../../../shared/utils/recorrencia'
+import { limitesDoMes } from '../../../shared/utils/periodo'
 import type { Database } from '../database.types'
+import { paraLinhaDeControle } from './controleDeSerie'
 
 type CartaoRow = Database['public']['Tables']['cartoes']['Row']
 type FaturaRow = Database['public']['Tables']['faturas']['Row']
@@ -65,6 +65,8 @@ function paraTransacao(row: TransacaoRow): TransacaoCartao {
     observacao: row.observacao,
     criadoEm: row.criado_em,
     atualizadoEm: row.atualizado_em,
+    serieId: row.serie_id,
+    editadoManualmente: row.editado_manualmente,
   }
 }
 
@@ -87,7 +89,6 @@ export class SupabaseFaturaRepository implements FaturaRepository {
 
   async listarComFaturas(userId: ID, filtro: FaturaFiltro): Promise<CartaoComFatura[]> {
     const competencia = `${filtro.periodo.ano}-${String(filtro.periodo.mes).padStart(2, '0')}`
-    const { inicio } = limitesDoMes(filtro.periodo)
 
     let cartoesQuery = this.supabase
       .from('cartoes')
@@ -102,74 +103,38 @@ export class SupabaseFaturaRepository implements FaturaRepository {
     if (erroCartoes) throw erroCartoes
     if (cartoes.length === 0) return []
 
-    const cartaoIds = cartoes.map((cartao) => cartao.id)
-
-    const [{ data: faturas, error: erroFaturas }, { data: candidatasRows, error: erroCandidatas }] = await Promise.all([
-      this.supabase.from('faturas').select('*').eq('user_id', userId).eq('competencia', competencia).in('cartao_id', cartaoIds),
-      this.supabase
-        .from('transacoes_cartao')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('recorrente', true)
-        .in('cartao_id', cartaoIds)
-        .lt('data', inicio),
-    ])
+    const { data: faturas, error: erroFaturas } = await this.supabase
+      .from('faturas')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('competencia', competencia)
+      .in(
+        'cartao_id',
+        cartoes.map((cartao) => cartao.id),
+      )
     if (erroFaturas) throw erroFaturas
-    if (erroCandidatas) throw erroCandidatas
 
     const faturaIds = faturas.map((fatura) => fatura.id)
     const { data: transacoes, error: erroTransacoes } =
       faturaIds.length > 0
-        ? await this.supabase.from('transacoes_cartao').select('*').in('fatura_id', faturaIds).order('data', { ascending: false })
+        ? await this.supabase
+            .from('transacoes_cartao')
+            .select('*')
+            .eq('user_id', userId)
+            .in('fatura_id', faturaIds)
+            .order('data', { ascending: false })
         : { data: [] as TransacaoRow[], error: null }
     if (erroTransacoes) throw erroTransacoes
-
-    const candidatasPorCartao = new Map<ID, TransacaoCartao[]>()
-    for (const row of candidatasRows) {
-      const transacao = paraTransacao(row)
-      const lista = candidatasPorCartao.get(transacao.cartaoId) ?? []
-      lista.push(transacao)
-      candidatasPorCartao.set(transacao.cartaoId, lista)
-    }
 
     return cartoes.map((cartaoRow) => {
       const cartao = paraCartao(cartaoRow)
       const faturaRow = faturas.find((fatura) => fatura.cartao_id === cartao.id)
-      const transacoesReais = faturaRow ? transacoes.filter((t) => t.fatura_id === faturaRow.id).map(paraTransacao) : []
+      if (!faturaRow) return { cartao, fatura: null, usoLimite: 0 }
 
-      // Transações recorrentes anteriores ao mês que ainda não têm ocorrência
-      // própria nesta competência (ver `projetarRecorrencias`) — nunca persistidas.
-      const chavesRealizadas = new Set(transacoesReais.map(chaveDaSerieDoItem))
-      const projetadas = projetarRecorrencias(candidatasPorCartao.get(cartao.id) ?? [], chavesRealizadas, filtro.periodo)
-
-      if (!faturaRow && projetadas.length === 0) {
-        return { cartao, fatura: null, usoLimite: 0 }
+      const fatura: FaturaDetalhada = {
+        ...paraFatura(faturaRow),
+        transacoes: transacoes.filter((t) => t.fatura_id === faturaRow.id).map(paraTransacao),
       }
-
-      const totalProjetado = projetadas.reduce((soma, transacao) => soma + transacao.valor, 0)
-
-      // Sem fatura real ainda: sintetiza uma fatura virtual (nunca persistida) só
-      // pra carregar as transações projetadas, com fechamento/vencimento calculados
-      // como se a fatura real fosse aberta agora.
-      const idFaturaAlvo = faturaRow ? faturaRow.id : `fat_virtual_${cartao.id}_${competencia}`
-      const transacoesFinal = [...transacoesReais, ...projetadas].map((transacao) => ({
-        ...transacao,
-        faturaId: idFaturaAlvo,
-      }))
-
-      const fatura: FaturaDetalhada = faturaRow
-        ? { ...paraFatura(faturaRow), total: Number(faturaRow.total) + totalProjetado, transacoes: transacoesFinal }
-        : {
-            id: idFaturaAlvo,
-            cartaoId: cartao.id,
-            competencia,
-            ...calcularDatasFatura(cartao, competencia),
-            total: totalProjetado,
-            status: 'ABERTA',
-            pagoEm: null,
-            transacoes: transacoesFinal,
-          }
-
       const usoLimite = cartao.limite > 0 ? (fatura.total / cartao.limite) * 100 : 0
 
       return { cartao, fatura, usoLimite }
@@ -178,28 +143,27 @@ export class SupabaseFaturaRepository implements FaturaRepository {
 
   /**
    * Faturas com vencimento dentro do período, com o mesmo total exibido na aba
-   * Cartões: o total real gravado somado às recorrências ainda não lançadas na
-   * competência (ver `projetarRecorrencias`). Faturas zeradas ficam de fora — sem
-   * débito não há saída a mostrar.
+   * Cartões. Recorrências do cartão já são transações reais na fatura do mês seguinte
+   * (ver `ControleDeSerie`), então entram aqui sozinhas. Faturas zeradas ficam de
+   * fora — sem débito não há saída a mostrar.
    */
   async listarVencendoNoPeriodo(userId: ID, periodo: Periodo): Promise<FaturaComoSaida[]> {
     const { inicio, fim } = limitesDoMes(periodo)
 
-    const { data: faturas, error: erroFaturas } = await this.supabase
+    const { data: faturasRows, error: erroFaturas } = await this.supabase
       .from('faturas')
       .select('*')
       .eq('user_id', userId)
       .gte('vencimento', inicio)
       .lte('vencimento', fim)
     if (erroFaturas) throw erroFaturas
+
+    const faturas = faturasRows.filter((fatura) => Number(fatura.total) > 0)
     if (faturas.length === 0) return []
 
     const cartaoIds = [...new Set(faturas.map((fatura) => fatura.cartao_id))]
-    const inicioMaisAntigo = faturas
-      .map((fatura) => limitesDoMes(paraPeriodo(fatura.competencia)).inicio)
-      .sort()[0]!
 
-    const [cartoesRes, transacoesRes, candidatasRes, categoriaRes] = await Promise.all([
+    const [cartoesRes, transacoesRes, categoriaRes] = await Promise.all([
       this.supabase.from('cartoes').select('id, nome').eq('user_id', userId).in('id', cartaoIds),
       this.supabase
         .from('transacoes_cartao')
@@ -209,13 +173,6 @@ export class SupabaseFaturaRepository implements FaturaRepository {
           'fatura_id',
           faturas.map((fatura) => fatura.id),
         ),
-      this.supabase
-        .from('transacoes_cartao')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('recorrente', true)
-        .in('cartao_id', cartaoIds)
-        .lt('data', inicioMaisAntigo),
       // Categoria em que a fatura entra na aba Saídas — espelha o mock do frontend
       // (`faturasComoSaidas` em services/mock/db.ts), que usa "Despesa Variável".
       this.supabase
@@ -229,41 +186,21 @@ export class SupabaseFaturaRepository implements FaturaRepository {
     ])
     if (cartoesRes.error) throw cartoesRes.error
     if (transacoesRes.error) throw transacoesRes.error
-    if (candidatasRes.error) throw candidatasRes.error
     if (categoriaRes.error) throw categoriaRes.error
 
     const nomePorCartao = new Map(cartoesRes.data.map((cartao) => [cartao.id, cartao.nome]))
-    const candidatasPorCartao = new Map<ID, TransacaoCartao[]>()
-    for (const row of candidatasRes.data) {
-      const transacao = paraTransacao(row)
-      const lista = candidatasPorCartao.get(transacao.cartaoId) ?? []
-      lista.push(transacao)
-      candidatasPorCartao.set(transacao.cartaoId, lista)
-    }
 
-    return faturas
-      .map((fatura) => {
-        const realizadas = transacoesRes.data.filter((t) => t.fatura_id === fatura.id).map(paraTransacao)
-        const chavesRealizadas = new Set(realizadas.map(chaveDaSerieDoItem))
-        const projetadas = projetarRecorrencias(
-          candidatasPorCartao.get(fatura.cartao_id) ?? [],
-          chavesRealizadas,
-          paraPeriodo(fatura.competencia),
-        )
-
-        return {
-          faturaId: fatura.id,
-          cartaoId: fatura.cartao_id,
-          cartaoNome: nomePorCartao.get(fatura.cartao_id) ?? 'Cartão',
-          categoriaId: categoriaRes.data?.id ?? '',
-          vencimento: fatura.vencimento,
-          total: Number(fatura.total) + projetadas.reduce((soma, transacao) => soma + transacao.valor, 0),
-          paga: fatura.status === 'PAGA',
-          pagoEm: fatura.pago_em,
-          transacoes: [...realizadas, ...projetadas],
-        }
-      })
-      .filter((fatura) => fatura.total > 0)
+    return faturas.map((fatura) => ({
+      faturaId: fatura.id,
+      cartaoId: fatura.cartao_id,
+      cartaoNome: nomePorCartao.get(fatura.cartao_id) ?? 'Cartão',
+      categoriaId: categoriaRes.data?.id ?? '',
+      vencimento: fatura.vencimento,
+      total: Number(fatura.total),
+      paga: fatura.status === 'PAGA',
+      pagoEm: fatura.pago_em,
+      transacoes: transacoesRes.data.filter((t) => t.fatura_id === fatura.id).map(paraTransacao),
+    }))
   }
 
   async pagar(userId: ID, faturaId: ID): Promise<void> {
@@ -296,12 +233,19 @@ export class SupabaseFaturaRepository implements FaturaRepository {
     cartaoId: ID,
     payload: TransacaoCartaoPayload,
     datas: DatasDaFatura,
+    controle?: Partial<ControleDeSerie>,
   ): Promise<TransacaoCartao> {
     const fatura = await this.garantirFatura(userId, cartaoId, datas)
 
     const { data, error } = await this.supabase
       .from('transacoes_cartao')
-      .insert({ ...paraLinha(payload), fatura_id: fatura.id, cartao_id: cartaoId, user_id: userId })
+      .insert({
+        ...paraLinha(payload),
+        ...paraLinhaDeControle(controle),
+        fatura_id: fatura.id,
+        cartao_id: cartaoId,
+        user_id: userId,
+      })
       .select('*')
       .single()
     if (error) throw error
@@ -315,6 +259,7 @@ export class SupabaseFaturaRepository implements FaturaRepository {
     id: ID,
     payload: TransacaoCartaoPayload,
     datas: DatasDaFatura,
+    controle?: Partial<ControleDeSerie>,
   ): Promise<TransacaoCartao> {
     const atual = await this.buscarTransacaoPorId(userId, id)
     if (!atual) throw new NotFoundError('Transação do cartão')
@@ -323,7 +268,7 @@ export class SupabaseFaturaRepository implements FaturaRepository {
 
     const { data, error } = await this.supabase
       .from('transacoes_cartao')
-      .update({ ...paraLinha(payload), fatura_id: fatura.id })
+      .update({ ...paraLinha(payload), ...paraLinhaDeControle(controle), fatura_id: fatura.id })
       .eq('id', id)
       .eq('user_id', userId)
       .select('*')

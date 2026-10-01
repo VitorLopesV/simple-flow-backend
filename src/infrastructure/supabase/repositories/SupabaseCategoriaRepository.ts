@@ -36,4 +36,16 @@ export class SupabaseCategoriaRepository implements CategoriaRepository {
 
     return data.map(paraCategoria)
   }
+
+  async buscarPorId(userId: ID, id: ID): Promise<Categoria | null> {
+    const { data, error } = await this.supabase
+      .from('categorias')
+      .select('*')
+      .eq('id', id)
+      .or(`user_id.is.null,user_id.eq.${userId}`)
+      .maybeSingle()
+
+    if (error) throw error
+    return data ? paraCategoria(data) : null
+  }
 }

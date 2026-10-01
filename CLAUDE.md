@@ -103,9 +103,13 @@ Na aba Saídas o cartão aparece como **uma saída derivada por fatura** (`paraS
 
 No dashboard, `totalFaturas` e `serieFaturas` são **recortes** de `totalSaidas`/`serieSaidas` (as faturas continuam somadas nas saídas; o frontend subtrai), pelo mês de vencimento da fatura, ambos via `somarFaturas` em `SupabaseDashboardRepository` — não crie uma query própria por competência, senão a definição de mês diverge do resto do dashboard.
 
-`gastosCartoesPorTipo`/`gastosCartoesPorCategoria` detalham essas mesmas faturas pelas transações (`FaturaComoSaida.transacoes`, lançadas + recorrências projetadas), vindas de `listarVencendoNoPeriodo` — a soma de cada um bate com `totalFaturas`.
+`gastosCartoesPorTipo`/`gastosCartoesPorCategoria` detalham essas mesmas faturas pelas transações (`FaturaComoSaida.transacoes`), vindas de `listarVencendoNoPeriodo` — a soma de cada um bate com `totalFaturas`.
 
 O `total` de `faturas` é sempre recalculado como a soma das transações (`recalcularTotal`), nunca por delta.
+
+## Regra de negócio não óbvia: recorrência
+
+Não existe projeção em tempo de leitura: cada mês de uma série recorrente é uma linha gravada e independente, ligada às outras só por `serie_id` (`ControleDeSerie` em `domain/entities/Recorrencia.ts`). `recorrente = true` só em categoria fixa (`categoriaPermiteRecorrencia`: `CONTA_FIXA`/`RENDA_FIXA`). Os use-cases `Criar*` gravam o original + o mês seguinte (`mesmoDiaNoMesSeguinte`); os `Atualizar*` editam só o registro, marcam `editado_manualmente` quando algo muda (`houveAlteracao`) e mantêm a descrição enquanto for recorrente. `serie_id`/`editado_manualmente` nunca vêm do payload — os repositórios recebem um `controle?: Partial<ControleDeSerie>` à parte.
 
 ## Testes
 

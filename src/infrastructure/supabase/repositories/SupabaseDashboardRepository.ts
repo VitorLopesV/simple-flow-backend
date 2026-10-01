@@ -46,15 +46,14 @@ export class SupabaseDashboardRepository implements DashboardRepository {
   async resumo(userId: ID, periodo: Periodo): Promise<DashboardResumo> {
     const periodos = ultimosPeriodos(periodo, MESES_NO_GRAFICO)
 
-    // Cada mês da janela já vem com a projeção de recorrências aplicada (mesma
-    // lógica de `listar`/`resumo` de entradas/saídas) — assim o gráfico e o card
-    // "no período" nunca divergem do que aparece nas telas de Entradas/Saídas.
+    // Cada mês da janela vem da mesma leitura de `listar`/`resumo` de entradas/saídas
+    // — assim o gráfico e o card "no período" nunca divergem das telas.
     //
     // As faturas do mês são buscadas de novo à parte: nas saídas cada uma já chega
     // somada numa saída só, sem as transações que o detalhe de cartões precisa.
     const [entradasPorPeriodo, saidasPorPeriodo, faturasDoMes, categoriasRes] = await Promise.all([
-      Promise.all(periodos.map((p) => this.entradaRepository.listarComProjecao(userId, p))),
-      Promise.all(periodos.map((p) => this.saidaRepository.listarComProjecao(userId, p))),
+      Promise.all(periodos.map((p) => this.entradaRepository.listarDoPeriodo(userId, p))),
+      Promise.all(periodos.map((p) => this.saidaRepository.listarDoPeriodo(userId, p))),
       this.faturaRepository.listarVencendoNoPeriodo(userId, periodo),
       this.supabase.from('categorias').select('id, nome, cor'),
     ])

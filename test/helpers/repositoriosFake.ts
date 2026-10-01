@@ -1,5 +1,6 @@
 import { vi } from 'vitest'
 
+import type { Categoria } from '../../src/domain/entities/Categoria'
 import type { AuthService } from '../../src/domain/repositories/AuthService'
 import type { CartaoRepository } from '../../src/domain/repositories/CartaoRepository'
 import type { CategoriaRepository } from '../../src/domain/repositories/CategoriaRepository'
@@ -18,7 +19,7 @@ export function criarEntradaRepositoryFake() {
   return {
     listar: vi.fn(),
     resumo: vi.fn(),
-    listarComProjecao: vi.fn(),
+    listarDoPeriodo: vi.fn(),
     buscarPorId: vi.fn(),
     criar: vi.fn(),
     atualizar: vi.fn(),
@@ -30,7 +31,7 @@ export function criarSaidaRepositoryFake() {
   return {
     listar: vi.fn(),
     resumo: vi.fn(),
-    listarComProjecao: vi.fn(),
+    listarDoPeriodo: vi.fn(),
     buscarPorId: vi.fn(),
     criar: vi.fn(),
     atualizar: vi.fn(),
@@ -60,8 +61,23 @@ export function criarFaturaRepositoryFake() {
   } satisfies FaturaRepository
 }
 
-export function criarCategoriaRepositoryFake() {
-  return { listar: vi.fn() } satisfies CategoriaRepository
+/** Categorias do sistema, uma por natureza — o que os use-cases consultam para validar a recorrência. */
+export const CATEGORIAS = {
+  despesaFixa: { id: 'cat-fixa', nome: 'Despesa Fixa', tipo: 'CONTA_FIXA', movimento: 'SAIDA', cor: '#6366f1', userId: null },
+  despesaVariavel: { id: 'cat-var', nome: 'Despesa Variável', tipo: 'CONTA_VARIAVEL', movimento: 'SAIDA', cor: '#14b8a6', userId: null },
+  investimento: { id: 'cat-inv', nome: 'Investimento', tipo: 'INVESTIMENTO', movimento: 'SAIDA', cor: '#0891b2', userId: null },
+  rendaFixa: { id: 'cat-renda-fixa', nome: 'Renda Fixa', tipo: 'RENDA_FIXA', movimento: 'ENTRADA', cor: '#10b981', userId: null },
+  rendaVariavel: { id: 'cat-renda-var', nome: 'Renda Variável', tipo: 'RENDA_VARIAVEL', movimento: 'ENTRADA', cor: '#06b6d4', userId: null },
+  investimentos: { id: 'cat-invs', nome: 'Investimentos', tipo: 'INVESTIMENTO', movimento: 'ENTRADA', cor: '#eab308', userId: null },
+  outros: { id: 'cat-outros', nome: 'Outros', tipo: 'OUTROS', movimento: 'ENTRADA', cor: '#94a3b8', userId: null },
+} satisfies Record<string, Categoria>
+
+/** `buscarPorId` responde a partir de `categorias` (por padrão, as de `CATEGORIAS`). */
+export function criarCategoriaRepositoryFake(categorias: Categoria[] = Object.values(CATEGORIAS)) {
+  return {
+    listar: vi.fn(),
+    buscarPorId: vi.fn(async (_userId: string, id: string) => categorias.find((categoria) => categoria.id === id) ?? null),
+  } satisfies CategoriaRepository
 }
 
 export function criarDashboardRepositoryFake() {

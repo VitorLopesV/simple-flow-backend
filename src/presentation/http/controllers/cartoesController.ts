@@ -10,6 +10,7 @@ import { PagarFatura } from '../../../application/use-cases/cartoes/PagarFatura'
 import { RemoverCartao } from '../../../application/use-cases/cartoes/RemoverCartao'
 import { RemoverTransacaoCartao } from '../../../application/use-cases/cartoes/RemoverTransacaoCartao'
 import { SupabaseCartaoRepository } from '../../../infrastructure/supabase/repositories/SupabaseCartaoRepository'
+import { SupabaseCategoriaRepository } from '../../../infrastructure/supabase/repositories/SupabaseCategoriaRepository'
 import { SupabaseFaturaRepository } from '../../../infrastructure/supabase/repositories/SupabaseFaturaRepository'
 
 function cartaoRepositorio(req: Request) {
@@ -18,6 +19,10 @@ function cartaoRepositorio(req: Request) {
 
 function faturaRepositorio(req: Request) {
   return new SupabaseFaturaRepository(req.supabase!)
+}
+
+function categoriaRepositorio(req: Request) {
+  return new SupabaseCategoriaRepository(req.supabase!)
 }
 
 export const cartoesController = {
@@ -58,13 +63,13 @@ export const cartoesController = {
   },
 
   async criarTransacao(req: Request, res: Response) {
-    const criar = new CriarTransacaoCartao(cartaoRepositorio(req), faturaRepositorio(req))
+    const criar = new CriarTransacaoCartao(cartaoRepositorio(req), faturaRepositorio(req), categoriaRepositorio(req))
     const transacao = await criar.execute(req.usuario!.id, req.params.cartaoId, req.body)
     res.status(201).json(transacao)
   },
 
   async atualizarTransacao(req: Request, res: Response) {
-    const atualizar = new AtualizarTransacaoCartao(cartaoRepositorio(req), faturaRepositorio(req))
+    const atualizar = new AtualizarTransacaoCartao(cartaoRepositorio(req), faturaRepositorio(req), categoriaRepositorio(req))
     const transacao = await atualizar.execute(req.usuario!.id, req.params.id, req.body)
     res.json(transacao)
   },

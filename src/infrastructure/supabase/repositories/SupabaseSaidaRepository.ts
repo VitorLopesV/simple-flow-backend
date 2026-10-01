@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { NotFoundError } from '../../../domain/errors/DomainError'
+import type { ControleDeSerie } from '../../../domain/entities/Recorrencia'
 import type { Saida, SaidaPayload, SaidaResumo } from '../../../domain/entities/Saida'
 import type { FaturaComoSaida } from '../../../domain/repositories/FaturaRepository'
 import type { SaidaFiltro, SaidaRepository } from '../../../domain/repositories/SaidaRepository'
@@ -8,8 +9,8 @@ import type { ID, Paginated, Periodo } from '../../../shared/types/common'
 import { agruparPorTipo } from '../../../shared/utils/agrupamento'
 import { faixaDaPagina, montarPaginado } from '../../../shared/utils/paginacao'
 import { limitesDoMes, mesAnterior } from '../../../shared/utils/periodo'
-import { chaveDaSerieDoItem, projetarRecorrencias } from '../../../shared/utils/recorrencia'
 import type { Database } from '../database.types'
+import { paraLinhaDeControle } from './controleDeSerie'
 import { SupabaseFaturaRepository } from './SupabaseFaturaRepository'
 
 type SaidaRow = Database['public']['Tables']['saidas']['Row']
@@ -32,6 +33,8 @@ function paraSaida(row: SaidaRow): Saida {
     criadoEm: row.criado_em,
     atualizadoEm: row.atualizado_em,
     automatica: row.automatica,
+    serieId: row.serie_id,
+    editadoManualmente: row.editado_manualmente,
   }
 }
 
@@ -59,6 +62,8 @@ function paraSaidaDeFatura(fatura: FaturaComoSaida): Saida {
     criadoEm: '',
     atualizadoEm: '',
     automatica: true,
+    serieId: null,
+    editadoManualmente: false,
   }
 }
 
@@ -91,39 +96,29 @@ export class SupabaseSaidaRepository implements SaidaRepository {
   }
 
   /**
-   * Saídas reais do período + projeção das séries recorrentes que ainda não têm
-   * ocorrência própria nesse mês (ver `projetarRecorrencias`) + uma saída derivada
-   * por fatura de cartão que vence no mês (ver `faturasComoSaidas`). Busca todas as
-   * linhas do período (sem filtro de categoria/status/busca) porque a projeção precisa
-   * saber, sem ambiguidade, quais séries já foram lançadas de fato — o filtro do
-   * chamador é aplicado depois, sobre o conjunto já combinado. Público porque o
-   * dashboard (`SupabaseDashboardRepository`) reusa esta mesma projeção mês a mês.
+   * Saídas do período + uma saída derivada por fatura de cartão que vence no mês (ver
+   * `paraSaidaDeFatura`), da mais recente para a mais antiga. Recorrências já são
+   * registros reais (ver `ControleDeSerie`) — inclusive as do cartão, que entram pela
+   * fatura do mês seguinte. Público porque o dashboard (`SupabaseDashboardRepository`)
+   * reusa esta mesma leitura mês a mês.
    */
-  async listarComProjecao(userId: ID, periodo: Periodo): Promise<Saida[]> {
+  async listarDoPeriodo(userId: ID, periodo: Periodo): Promise<Saida[]> {
     const { inicio, fim } = limitesDoMes(periodo)
 
-    const [doPeriodo, candidatas, faturas] = await Promise.all([
+    const [doPeriodo, faturas] = await Promise.all([
       this.supabase.from('saidas').select('*').eq('user_id', userId).gte('data', inicio).lte('data', fim),
-      this.supabase.from('saidas').select('*').eq('user_id', userId).eq('recorrente', true).lt('data', inicio),
       this.faturaRepository.listarVencendoNoPeriodo(userId, periodo),
     ])
 
     if (doPeriodo.error) throw doPeriodo.error
-    if (candidatas.error) throw candidatas.error
 
-    const reais = doPeriodo.data.map(paraSaida)
-    const chavesRealizadas = new Set(reais.map(chaveDaSerieDoItem))
-    // Projeção nunca herda a situação de pagamento do original: cada mês começa pendente.
-    const projetadas = projetarRecorrencias(candidatas.data.map(paraSaida), chavesRealizadas, periodo, {
-      status: 'PENDENTE',
-      pagoEm: null,
-    })
-
-    return [...reais, ...projetadas, ...faturas.map(paraSaidaDeFatura)].sort((a, b) => b.data.localeCompare(a.data))
+    return [...doPeriodo.data.map(paraSaida), ...faturas.map(paraSaidaDeFatura)].sort((a, b) =>
+      b.data.localeCompare(a.data),
+    )
   }
 
   async listar(userId: ID, filtro: SaidaFiltro): Promise<Paginated<Saida>> {
-    const todas = await this.listarComProjecao(userId, filtro.periodo)
+    const todas = await this.listarDoPeriodo(userId, filtro.periodo)
     const busca = filtro.busca?.toLocaleLowerCase()
 
     const filtradas = todas
@@ -142,8 +137,8 @@ export class SupabaseSaidaRepository implements SaidaRepository {
 
   async resumo(userId: ID, periodo: Periodo): Promise<SaidaResumo> {
     const [doPeriodo, doMesAnterior, categorias] = await Promise.all([
-      this.listarComProjecao(userId, periodo),
-      this.listarComProjecao(userId, mesAnterior(periodo)),
+      this.listarDoPeriodo(userId, periodo),
+      this.listarDoPeriodo(userId, mesAnterior(periodo)),
       this.supabase.from('categorias').select('id, nome, cor'),
     ])
 
@@ -196,10 +191,10 @@ export class SupabaseSaidaRepository implements SaidaRepository {
     return data ? paraSaida(data) : null
   }
 
-  async criar(userId: ID, payload: SaidaPayload): Promise<Saida> {
+  async criar(userId: ID, payload: SaidaPayload, controle?: Partial<ControleDeSerie>): Promise<Saida> {
     const { data, error } = await this.supabase
       .from('saidas')
-      .insert({ ...paraLinha(payload), user_id: userId })
+      .insert({ ...paraLinha(payload), ...paraLinhaDeControle(controle), user_id: userId })
       .select('*')
       .single()
 
@@ -207,10 +202,10 @@ export class SupabaseSaidaRepository implements SaidaRepository {
     return paraSaida(data)
   }
 
-  async atualizar(userId: ID, id: ID, payload: SaidaPayload): Promise<Saida> {
+  async atualizar(userId: ID, id: ID, payload: SaidaPayload, controle?: Partial<ControleDeSerie>): Promise<Saida> {
     const { data, error } = await this.supabase
       .from('saidas')
-      .update(paraLinha(payload))
+      .update({ ...paraLinha(payload), ...paraLinhaDeControle(controle) })
       .eq('id', id)
       .eq('user_id', userId)
       .select('*')

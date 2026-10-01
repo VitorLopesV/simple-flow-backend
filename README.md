@@ -121,7 +121,20 @@ período consultado:
 - Ordenado do maior para o menor `total`.
 - Tipos sem saídas no período **ficam de fora** (não retornam total 0).
 - A soma dos `total` de `porTipo` é igual ao `total` do resumo (mesma base de saídas, incluindo
-  recorrências projetadas e a saída derivada da fatura do cartão).
+  a saída derivada da fatura do cartão).
+
+### Recorrência
+
+Cada mês de uma série recorrente é um **registro real e independente** (editar um mês não muda os
+outros); o que liga os meses é o `serieId` devolvido em entradas, saídas e transações de cartão.
+
+- `recorrente: true` só é aceito em **Renda Fixa** (entradas) e **Despesa Fixa** (saídas e cartão) —
+  nas demais categorias, 422. Num `PUT`, trocar um registro recorrente para categoria não fixa
+  desliga a recorrência.
+- Criar um registro recorrente grava também o do mês seguinte (mesmo dia, limitado ao fim do mês;
+  saída nasce `PENDENTE`; no cartão, vai para a fatura do mês seguinte).
+- O nome é imutável enquanto o registro for recorrente.
+- Não há mais projeção em tempo de leitura nem ids sintéticos (`<uuid>_YYYY-MM` → 422).
 
 Os formatos de request/response estão tipados em `frontend/src/types` e espelhados nas
 entidades de `src/domain/entities`.

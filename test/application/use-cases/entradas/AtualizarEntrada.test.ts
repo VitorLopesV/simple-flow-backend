@@ -1,24 +1,28 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { AtualizarEntrada } from '../../../../src/application/use-cases/entradas/AtualizarEntrada'
 import type { Entrada, EntradaPayload } from '../../../../src/domain/entities/Entrada'
-import { NotFoundError } from '../../../../src/domain/errors/DomainError'
-import type { EntradaRepository } from '../../../../src/domain/repositories/EntradaRepository'
+import { NotFoundError, ValidationError } from '../../../../src/domain/errors/DomainError'
+import { CATEGORIAS, criarCategoriaRepositoryFake, criarEntradaRepositoryFake } from '../../../helpers/repositoriosFake'
 
 const USER_ID = 'user-1'
-const ID_ENTRADA = '123e4567-e89b-12d3-a456-426614174000'
-const ID_PROJETADO = `${ID_ENTRADA}_2026-09`
+const ID = '123e4567-e89b-12d3-a456-426614174000'
+const SERIE = 'serie-1'
 
 function entrada(sobrescritas: Partial<Entrada> = {}): Entrada {
   return {
-    id: ID_ENTRADA,
+    id: ID,
     descricao: 'Salário',
     valor: 5000,
-    data: '2026-08-05',
-    categoriaId: 'cat-1',
+    data: '2026-09-05',
+    categoriaId: CATEGORIAS.rendaFixa.id,
+    tipo: 'SALARIO',
     recorrente: false,
+    observacao: null,
     criadoEm: '2026-08-01T00:00:00.000Z',
     atualizadoEm: '2026-08-01T00:00:00.000Z',
+    serieId: null,
+    editadoManualmente: false,
     ...sobrescritas,
   }
 }
@@ -27,118 +31,116 @@ function payload(sobrescritas: Partial<EntradaPayload> = {}): EntradaPayload {
   return {
     descricao: 'Salário',
     valor: 5000,
-    data: '2026-08-05',
-    categoriaId: 'cat-1',
+    data: '2026-09-05',
+    categoriaId: CATEGORIAS.rendaFixa.id,
+    tipo: 'SALARIO',
     recorrente: false,
+    observacao: null,
     ...sobrescritas,
   }
 }
 
-function criarRepositorio(existentes: Entrada[] = []) {
-  return {
-    listar: vi.fn(),
-    resumo: vi.fn(),
-    listarComProjecao: vi.fn(),
-    buscarPorId: vi.fn(async (_userId: string, id: string) => existentes.find((e) => e.id === id) ?? null),
-    criar: vi.fn(async (_userId: string, dados: EntradaPayload) => entrada({ ...dados, id: 'nova' })),
-    atualizar: vi.fn(async (_userId: string, id: string, dados: EntradaPayload) => entrada({ ...dados, id })),
-    remover: vi.fn(),
-  } satisfies EntradaRepository
+function criarRepositorios(existentes: Entrada[] = []) {
+  const entradas = criarEntradaRepositoryFake()
+  entradas.buscarPorId.mockImplementation(async (_userId: string, id: string) => existentes.find((e) => e.id === id) ?? null)
+  entradas.atualizar.mockImplementation(async (_userId: string, id: string, dados: EntradaPayload, controle = {}) =>
+    entrada({ ...existentes.find((e) => e.id === id), ...dados, ...controle }),
+  )
+  return { entradas, categorias: criarCategoriaRepositoryFake() }
 }
 
 describe('AtualizarEntrada', () => {
-  it('mantém a descrição atual e chama atualizar com o id quando atual e payload são recorrentes', async () => {
-    const repositorio = criarRepositorio([entrada({ recorrente: true, descricao: 'Salário' })])
+  it('atualiza só o registro informado e marca como editado quando algo muda', async () => {
+    const { entradas, categorias } = criarRepositorios([entrada()])
 
-    await new AtualizarEntrada(repositorio).execute(
+    const atualizada = await new AtualizarEntrada(entradas, categorias).execute(USER_ID, ID, payload({ valor: 5500 }))
+
+    expect(entradas.atualizar).toHaveBeenCalledTimes(1)
+    expect(entradas.atualizar).toHaveBeenCalledWith(USER_ID, ID, payload({ valor: 5500 }), { editadoManualmente: true })
+    expect(atualizada.valor).toBe(5500)
+    expect(entradas.criar).not.toHaveBeenCalled()
+  })
+
+  it('não marca como editado quando o payload é idêntico ao registro', async () => {
+    const { entradas, categorias } = criarRepositorios([entrada()])
+
+    await new AtualizarEntrada(entradas, categorias).execute(USER_ID, ID, payload())
+
+    expect(entradas.atualizar.mock.calls[0]![3]).toEqual({ editadoManualmente: false })
+  })
+
+  it('mantém editado um registro que já tinha sido alterado antes', async () => {
+    const { entradas, categorias } = criarRepositorios([entrada({ editadoManualmente: true })])
+
+    await new AtualizarEntrada(entradas, categorias).execute(USER_ID, ID, payload())
+
+    expect(entradas.atualizar.mock.calls[0]![3]).toEqual({ editadoManualmente: true })
+  })
+
+  it('preserva a descrição original enquanto a entrada continua recorrente', async () => {
+    const { entradas, categorias } = criarRepositorios([entrada({ recorrente: true, serieId: SERIE })])
+
+    await new AtualizarEntrada(entradas, categorias).execute(
       USER_ID,
-      ID_ENTRADA,
-      payload({ recorrente: true, descricao: 'Salário novo' }),
+      ID,
+      payload({ recorrente: true, descricao: 'Outro nome' }),
     )
 
-    expect(repositorio.atualizar).toHaveBeenCalledWith(
+    expect(entradas.atualizar.mock.calls[0]![2]).toMatchObject({ descricao: 'Salário', recorrente: true })
+  })
+
+  it('aceita a nova descrição quando a recorrência é desligada', async () => {
+    const { entradas, categorias } = criarRepositorios([entrada({ recorrente: true, serieId: SERIE })])
+
+    await new AtualizarEntrada(entradas, categorias).execute(USER_ID, ID, payload({ descricao: 'Outro nome' }))
+
+    expect(entradas.atualizar.mock.calls[0]![2]).toMatchObject({ descricao: 'Outro nome', recorrente: false })
+  })
+
+  it('trocar uma entrada recorrente para categoria não fixa desliga a recorrência (sem 422)', async () => {
+    const { entradas, categorias } = criarRepositorios([entrada({ recorrente: true, serieId: SERIE })])
+
+    await new AtualizarEntrada(entradas, categorias).execute(
       USER_ID,
-      ID_ENTRADA,
-      expect.objectContaining({ descricao: 'Salário' }),
+      ID,
+      payload({ recorrente: true, categoriaId: CATEGORIAS.rendaVariavel.id, descricao: 'Freela' }),
     )
+
+    expect(entradas.atualizar.mock.calls[0]![2]).toMatchObject({ recorrente: false, descricao: 'Freela' })
   })
 
-  it('aplica a nova descrição quando a entrada atual não é recorrente', async () => {
-    const repositorio = criarRepositorio([entrada({ recorrente: false })])
+  it('rejeita ligar a recorrência numa categoria não fixa com 422', async () => {
+    const { entradas, categorias } = criarRepositorios([entrada({ categoriaId: CATEGORIAS.outros.id })])
 
-    await new AtualizarEntrada(repositorio).execute(USER_ID, ID_ENTRADA, payload({ descricao: 'Salário novo' }))
-
-    expect(repositorio.atualizar).toHaveBeenCalledWith(
+    const execucao = new AtualizarEntrada(entradas, categorias).execute(
       USER_ID,
-      ID_ENTRADA,
-      expect.objectContaining({ descricao: 'Salário novo' }),
-    )
-  })
-
-  it('aplica a nova descrição quando a entrada recorrente deixa de ser recorrente', async () => {
-    const repositorio = criarRepositorio([entrada({ recorrente: true })])
-
-    await new AtualizarEntrada(repositorio).execute(
-      USER_ID,
-      ID_ENTRADA,
-      payload({ recorrente: false, descricao: 'Salário novo' }),
+      ID,
+      payload({ recorrente: true, categoriaId: CATEGORIAS.outros.id }),
     )
 
-    expect(repositorio.atualizar).toHaveBeenCalledWith(
-      USER_ID,
-      ID_ENTRADA,
-      expect.objectContaining({ descricao: 'Salário novo' }),
+    await expect(execucao).rejects.toThrow(
+      new ValidationError('Lançamento recorrente só é permitido na categoria Renda Fixa.'),
     )
+    expect(entradas.atualizar).not.toHaveBeenCalled()
   })
 
-  it('materializa id projetado de origem recorrente com criar e a descrição da origem', async () => {
-    const repositorio = criarRepositorio([entrada({ recorrente: true, descricao: 'Salário' })])
-    const dados = payload({ descricao: 'Outro nome', data: '2026-09-05', recorrente: true })
+  it('rejeita categoria inexistente ou de saída com 422', async () => {
+    const { entradas, categorias } = criarRepositorios([entrada()])
 
-    await new AtualizarEntrada(repositorio).execute(USER_ID, ID_PROJETADO, dados)
-
-    expect(repositorio.buscarPorId).toHaveBeenCalledWith(USER_ID, ID_ENTRADA)
-    expect(repositorio.criar).toHaveBeenCalledWith(USER_ID, { ...dados, descricao: 'Salário' })
-    expect(repositorio.atualizar).not.toHaveBeenCalled()
+    for (const categoriaId of ['cat-x', CATEGORIAS.despesaFixa.id]) {
+      await expect(
+        new AtualizarEntrada(entradas, categorias).execute(USER_ID, ID, payload({ categoriaId })),
+      ).rejects.toThrow(new ValidationError('Categoria inválida.'))
+    }
+    expect(entradas.atualizar).not.toHaveBeenCalled()
   })
 
-  it('lança NotFoundError para id projetado cuja origem não é recorrente', async () => {
-    const repositorio = criarRepositorio([entrada({ recorrente: false })])
+  it('lança NotFoundError quando a entrada não existe (inclusive id de outro usuário)', async () => {
+    const { entradas, categorias } = criarRepositorios()
 
-    const promessa = new AtualizarEntrada(repositorio).execute(USER_ID, ID_PROJETADO, payload())
-
-    await expect(promessa).rejects.toBeInstanceOf(NotFoundError)
-    await expect(promessa).rejects.toMatchObject({ status: 404 })
-    expect(repositorio.criar).not.toHaveBeenCalled()
-  })
-
-  it('lança NotFoundError para id projetado cuja origem não existe', async () => {
-    const repositorio = criarRepositorio()
-
-    await expect(new AtualizarEntrada(repositorio).execute(USER_ID, ID_PROJETADO, payload())).rejects.toBeInstanceOf(
-      NotFoundError,
+    await expect(new AtualizarEntrada(entradas, categorias).execute(USER_ID, ID, payload())).rejects.toThrow(
+      new NotFoundError('Entrada'),
     )
-    expect(repositorio.criar).not.toHaveBeenCalled()
-  })
-
-  it('lança NotFoundError para id comum inexistente sem segunda busca no repositório', async () => {
-    const repositorio = criarRepositorio()
-
-    await expect(new AtualizarEntrada(repositorio).execute(USER_ID, ID_ENTRADA, payload())).rejects.toBeInstanceOf(
-      NotFoundError,
-    )
-    expect(repositorio.buscarPorId).toHaveBeenCalledTimes(1)
-  })
-
-  it('repassa o userId a todas as chamadas do repositório', async () => {
-    const repositorio = criarRepositorio([entrada({ recorrente: true })])
-    const useCase = new AtualizarEntrada(repositorio)
-
-    await useCase.execute(USER_ID, ID_ENTRADA, payload())
-    await useCase.execute(USER_ID, ID_PROJETADO, payload())
-
-    expect(repositorio.buscarPorId.mock.calls.every(([userId]) => userId === USER_ID)).toBe(true)
-    expect(repositorio.atualizar.mock.calls[0]![0]).toBe(USER_ID)
-    expect(repositorio.criar.mock.calls[0]![0]).toBe(USER_ID)
+    expect(entradas.atualizar).not.toHaveBeenCalled()
   })
 })

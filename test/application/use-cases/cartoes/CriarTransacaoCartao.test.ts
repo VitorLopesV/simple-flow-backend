@@ -1,14 +1,19 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { CriarTransacaoCartao } from '../../../../src/application/use-cases/cartoes/CriarTransacaoCartao'
 import type { Cartao } from '../../../../src/domain/entities/Cartao'
 import type { TransacaoCartao, TransacaoCartaoPayload } from '../../../../src/domain/entities/Fatura'
-import { NotFoundError } from '../../../../src/domain/errors/DomainError'
-import type { CartaoRepository } from '../../../../src/domain/repositories/CartaoRepository'
-import type { FaturaRepository } from '../../../../src/domain/repositories/FaturaRepository'
+import { NotFoundError, ValidationError } from '../../../../src/domain/errors/DomainError'
+import {
+  CATEGORIAS,
+  criarCartaoRepositoryFake,
+  criarCategoriaRepositoryFake,
+  criarFaturaRepositoryFake,
+} from '../../../helpers/repositoriosFake'
 
 const USER_ID = 'user-1'
 const CARTAO_ID = 'cartao-1'
+const UUID = /^[0-9a-f-]{36}$/
 
 function cartao(sobrescritas: Partial<Cartao> = {}): Cartao {
   return {
@@ -31,7 +36,7 @@ function payload(sobrescritas: Partial<TransacaoCartaoPayload> = {}): TransacaoC
     descricao: 'Mercado',
     valor: 200,
     data: '2026-09-15',
-    categoriaId: 'cat-1',
+    categoriaId: CATEGORIAS.despesaVariavel.id,
     tipo: 'ALIMENTACAO',
     parcelaAtual: 1,
     totalParcelas: 1,
@@ -47,60 +52,54 @@ const transacaoCriada: TransacaoCartao = {
   faturaId: 'fatura-1',
   criadoEm: '2026-09-15T12:00:00.000Z',
   atualizadoEm: '2026-09-15T12:00:00.000Z',
+  serieId: null,
+  editadoManualmente: false,
 }
 
 function criarRepositorios(cartaoExistente: Cartao | null) {
-  const cartaoRepository = {
-    listar: vi.fn(),
-    buscarPorId: vi.fn(async () => cartaoExistente),
-    criar: vi.fn(),
-    atualizar: vi.fn(),
-    remover: vi.fn(),
-  } satisfies CartaoRepository
+  const cartaoRepository = criarCartaoRepositoryFake()
+  cartaoRepository.buscarPorId.mockResolvedValue(cartaoExistente)
+  const faturaRepository = criarFaturaRepositoryFake()
+  faturaRepository.criarTransacao.mockResolvedValue(transacaoCriada)
+  return { cartaoRepository, faturaRepository, categoriaRepository: criarCategoriaRepositoryFake() }
+}
 
-  const faturaRepository = {
-    listarComFaturas: vi.fn(),
-    listarVencendoNoPeriodo: vi.fn(),
-    pagar: vi.fn(),
-    buscarTransacaoPorId: vi.fn(),
-    criarTransacao: vi.fn(async () => transacaoCriada),
-    atualizarTransacao: vi.fn(),
-    removerTransacao: vi.fn(),
-  } satisfies FaturaRepository
-
-  return { cartaoRepository, faturaRepository }
+function useCase(repositorios: ReturnType<typeof criarRepositorios>) {
+  return new CriarTransacaoCartao(
+    repositorios.cartaoRepository,
+    repositorios.faturaRepository,
+    repositorios.categoriaRepository,
+  )
 }
 
 describe('CriarTransacaoCartao', () => {
   it('lança NotFoundError para cartão inexistente sem chamar criarTransacao', async () => {
-    const { cartaoRepository, faturaRepository } = criarRepositorios(null)
+    const repositorios = criarRepositorios(null)
 
-    const promessa = new CriarTransacaoCartao(cartaoRepository, faturaRepository).execute(
-      USER_ID,
-      CARTAO_ID,
-      payload(),
-    )
+    const promessa = useCase(repositorios).execute(USER_ID, CARTAO_ID, payload())
 
     await expect(promessa).rejects.toBeInstanceOf(NotFoundError)
     await expect(promessa).rejects.toMatchObject({ status: 404 })
-    expect(faturaRepository.criarTransacao).not.toHaveBeenCalled()
+    expect(repositorios.faturaRepository.criarTransacao).not.toHaveBeenCalled()
   })
 
-  it('busca o cartão com userId e cartaoId', async () => {
-    const { cartaoRepository, faturaRepository } = criarRepositorios(cartao())
+  it('busca o cartão e a categoria com o userId', async () => {
+    const repositorios = criarRepositorios(cartao())
 
-    await new CriarTransacaoCartao(cartaoRepository, faturaRepository).execute(USER_ID, CARTAO_ID, payload())
+    await useCase(repositorios).execute(USER_ID, CARTAO_ID, payload())
 
-    expect(cartaoRepository.buscarPorId).toHaveBeenCalledWith(USER_ID, CARTAO_ID)
+    expect(repositorios.cartaoRepository.buscarPorId).toHaveBeenCalledWith(USER_ID, CARTAO_ID)
+    expect(repositorios.categoriaRepository.buscarPorId).toHaveBeenCalledWith(USER_ID, CATEGORIAS.despesaVariavel.id)
   })
 
   it('lança a transação na competência da data com fechamento dia 10 e vencimento dia 20', async () => {
-    const { cartaoRepository, faturaRepository } = criarRepositorios(cartao({ diaFechamento: 10, diaVencimento: 20 }))
+    const repositorios = criarRepositorios(cartao({ diaFechamento: 10, diaVencimento: 20 }))
     const dados = payload({ data: '2026-09-15' })
 
-    await new CriarTransacaoCartao(cartaoRepository, faturaRepository).execute(USER_ID, CARTAO_ID, dados)
+    await useCase(repositorios).execute(USER_ID, CARTAO_ID, dados)
 
-    expect(faturaRepository.criarTransacao).toHaveBeenCalledWith(USER_ID, CARTAO_ID, dados, {
+    expect(repositorios.faturaRepository.criarTransacao).toHaveBeenCalledTimes(1)
+    expect(repositorios.faturaRepository.criarTransacao).toHaveBeenCalledWith(USER_ID, CARTAO_ID, dados, {
       competencia: '2026-09',
       fechamento: '2026-09-10',
       vencimento: '2026-09-20',
@@ -108,12 +107,12 @@ describe('CriarTransacaoCartao', () => {
   })
 
   it('joga o vencimento para o mês seguinte quando é menor ou igual ao fechamento', async () => {
-    const { cartaoRepository, faturaRepository } = criarRepositorios(cartao({ diaFechamento: 25, diaVencimento: 5 }))
+    const repositorios = criarRepositorios(cartao({ diaFechamento: 25, diaVencimento: 5 }))
     const dados = payload({ data: '2026-09-15' })
 
-    await new CriarTransacaoCartao(cartaoRepository, faturaRepository).execute(USER_ID, CARTAO_ID, dados)
+    await useCase(repositorios).execute(USER_ID, CARTAO_ID, dados)
 
-    expect(faturaRepository.criarTransacao).toHaveBeenCalledWith(USER_ID, CARTAO_ID, dados, {
+    expect(repositorios.faturaRepository.criarTransacao).toHaveBeenCalledWith(USER_ID, CARTAO_ID, dados, {
       competencia: '2026-09',
       fechamento: '2026-09-25',
       vencimento: '2026-10-05',
@@ -121,28 +120,62 @@ describe('CriarTransacaoCartao', () => {
   })
 
   it('usa competência 2026-12 e vencimento em janeiro de 2027 para data de dezembro', async () => {
-    const { cartaoRepository, faturaRepository } = criarRepositorios(cartao({ diaFechamento: 25, diaVencimento: 5 }))
-    const dados = payload({ data: '2026-12-20' })
+    const repositorios = criarRepositorios(cartao({ diaFechamento: 25, diaVencimento: 5 }))
 
-    await new CriarTransacaoCartao(cartaoRepository, faturaRepository).execute(USER_ID, CARTAO_ID, dados)
+    await useCase(repositorios).execute(USER_ID, CARTAO_ID, payload({ data: '2026-12-20' }))
 
-    expect(faturaRepository.criarTransacao).toHaveBeenCalledWith(
-      USER_ID,
-      CARTAO_ID,
-      dados,
-      expect.objectContaining({ competencia: '2026-12', vencimento: '2027-01-05' }),
-    )
+    expect(repositorios.faturaRepository.criarTransacao.mock.calls[0]![3]).toMatchObject({
+      competencia: '2026-12',
+      vencimento: '2027-01-05',
+    })
   })
 
   it('devolve a transação retornada pelo repositório', async () => {
-    const { cartaoRepository, faturaRepository } = criarRepositorios(cartao())
+    const repositorios = criarRepositorios(cartao())
 
-    const resultado = await new CriarTransacaoCartao(cartaoRepository, faturaRepository).execute(
-      USER_ID,
-      CARTAO_ID,
-      payload(),
-    )
+    await expect(useCase(repositorios).execute(USER_ID, CARTAO_ID, payload())).resolves.toBe(transacaoCriada)
+  })
 
+  it('Despesa Fixa recorrente lança também o mês seguinte, na fatura do mês seguinte e na mesma série', async () => {
+    const repositorios = criarRepositorios(cartao({ diaFechamento: 10, diaVencimento: 20 }))
+    const dados = payload({ recorrente: true, categoriaId: CATEGORIAS.despesaFixa.id, data: '2026-09-15' })
+
+    const resultado = await useCase(repositorios).execute(USER_ID, CARTAO_ID, dados)
+
+    const chamadas = repositorios.faturaRepository.criarTransacao.mock.calls
+    expect(chamadas).toHaveLength(2)
+    expect(chamadas[0]!.slice(2, 4)).toEqual([
+      dados,
+      { competencia: '2026-09', fechamento: '2026-09-10', vencimento: '2026-09-20' },
+    ])
+    expect(chamadas[1]!.slice(2, 4)).toEqual([
+      { ...dados, data: '2026-10-15' },
+      { competencia: '2026-10', fechamento: '2026-10-10', vencimento: '2026-10-20' },
+    ])
+    expect(chamadas[0]![4]!.serieId).toMatch(UUID)
+    expect(chamadas[1]![4]).toEqual(chamadas[0]![4])
     expect(resultado).toBe(transacaoCriada)
+  })
+
+  it('rejeita recorrente em categoria não fixa com 422, sem lançar nada', async () => {
+    const repositorios = criarRepositorios(cartao())
+
+    for (const categoriaId of [CATEGORIAS.despesaVariavel.id, CATEGORIAS.investimento.id]) {
+      await expect(
+        useCase(repositorios).execute(USER_ID, CARTAO_ID, payload({ recorrente: true, categoriaId })),
+      ).rejects.toThrow(new ValidationError('Lançamento recorrente só é permitido na categoria Despesa Fixa.'))
+    }
+    expect(repositorios.faturaRepository.criarTransacao).not.toHaveBeenCalled()
+  })
+
+  it('rejeita categoria inexistente ou de entrada com 422', async () => {
+    const repositorios = criarRepositorios(cartao())
+
+    for (const categoriaId of ['cat-x', CATEGORIAS.rendaFixa.id]) {
+      await expect(useCase(repositorios).execute(USER_ID, CARTAO_ID, payload({ categoriaId }))).rejects.toThrow(
+        new ValidationError('Categoria inválida.'),
+      )
+    }
+    expect(repositorios.faturaRepository.criarTransacao).not.toHaveBeenCalled()
   })
 })

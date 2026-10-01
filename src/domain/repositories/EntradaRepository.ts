@@ -1,4 +1,5 @@
 import type { Entrada, EntradaPayload, EntradaResumo, EntradaTipo } from '../entities/Entrada'
+import type { ControleDeSerie } from '../entities/Recorrencia'
 import type { ID, Paginated, Periodo } from '../../shared/types/common'
 
 export interface EntradaFiltro {
@@ -13,10 +14,11 @@ export interface EntradaFiltro {
 export interface EntradaRepository {
   listar(userId: ID, filtro: EntradaFiltro): Promise<Paginated<Entrada>>
   resumo(userId: ID, periodo: Periodo): Promise<EntradaResumo>
-  /** Entradas reais do período + projeção das séries recorrentes (ver `shared/utils/recorrencia.ts`), sem paginação/filtro — usado pelo dashboard para montar a série de vários meses. */
-  listarComProjecao(userId: ID, periodo: Periodo): Promise<Entrada[]>
+  /** Entradas do período, sem paginação/filtro — usado pelo dashboard para montar a série de vários meses. */
+  listarDoPeriodo(userId: ID, periodo: Periodo): Promise<Entrada[]>
   buscarPorId(userId: ID, id: ID): Promise<Entrada | null>
-  criar(userId: ID, payload: EntradaPayload): Promise<Entrada>
-  atualizar(userId: ID, id: ID, payload: EntradaPayload): Promise<Entrada>
+  criar(userId: ID, payload: EntradaPayload, controle?: Partial<ControleDeSerie>): Promise<Entrada>
+  /** Campos de `controle` ausentes mantêm o valor gravado. */
+  atualizar(userId: ID, id: ID, payload: EntradaPayload, controle?: Partial<ControleDeSerie>): Promise<Entrada>
   remover(userId: ID, id: ID): Promise<void>
 }

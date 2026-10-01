@@ -1,6 +1,7 @@
 import type { ID, Periodo } from '../../shared/types/common'
 import type { SaidaTipo } from './Saida'
 import type { Cartao } from './Cartao'
+import type { ControleDeSerie } from './Recorrencia'
 
 export type FaturaStatus = 'ABERTA' | 'FECHADA' | 'PAGA' | 'ATRASADA'
 
@@ -8,7 +9,7 @@ export type FaturaStatus = 'ABERTA' | 'FECHADA' | 'PAGA' | 'ATRASADA'
  * Débito lançado direto no cartão — mesmo formato de uma `Saida`, sem forma de
  * pagamento (é sempre o cartão) e sem situação própria (quem é paga é a fatura).
  */
-export interface TransacaoCartao {
+export interface TransacaoCartao extends ControleDeSerie {
   id: ID
   cartaoId: ID
   faturaId: ID
@@ -23,17 +24,11 @@ export interface TransacaoCartao {
   observacao?: string | null
   criadoEm: string
   atualizadoEm: string
-  /**
-   * Preenchido só nas ocorrências futuras projetadas a partir de uma transação
-   * recorrente (ver `shared/utils/recorrencia.ts`) — nunca persistido, recalculado
-   * a cada leitura, e a fatura a que pertence pode ser virtual (ver `Fatura.id`).
-   */
-  origemRecorrenciaId?: ID
 }
 
 export type TransacaoCartaoPayload = Omit<
   TransacaoCartao,
-  'id' | 'cartaoId' | 'faturaId' | 'criadoEm' | 'atualizadoEm' | 'origemRecorrenciaId'
+  'id' | 'cartaoId' | 'faturaId' | 'criadoEm' | 'atualizadoEm' | keyof ControleDeSerie
 >
 
 export interface Fatura {

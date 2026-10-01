@@ -37,8 +37,7 @@ export interface DashboardResumo {
   entradasPorCategoria: { nome: string; cor: string; total: number }[]
   /**
    * Transações lançadas nos cartões, agrupadas por tipo — só as das faturas que entram
-   * em `totalFaturas` (mesmo mês de vencimento), com as recorrências projetadas, então
-   * a soma bate com ele. A aba Saídas vê a fatura inteira como uma saída só; é aqui que
+   * em `totalFaturas` (mesmo mês de vencimento), então a soma bate com ele. A aba Saídas vê a fatura inteira como uma saída só; é aqui que
    * o dashboard enxerga o detalhe.
    */
   gastosCartoesPorTipo: { tipo: SaidaTipo; total: number }[]

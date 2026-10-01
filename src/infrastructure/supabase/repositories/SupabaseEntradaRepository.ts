@@ -2,12 +2,13 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { NotFoundError } from '../../../domain/errors/DomainError'
 import type { Entrada, EntradaPayload, EntradaResumo } from '../../../domain/entities/Entrada'
+import type { ControleDeSerie } from '../../../domain/entities/Recorrencia'
 import type { EntradaFiltro, EntradaRepository } from '../../../domain/repositories/EntradaRepository'
 import type { ID, Paginated, Periodo } from '../../../shared/types/common'
 import { faixaDaPagina, montarPaginado } from '../../../shared/utils/paginacao'
 import { limitesDoMes, mesAnterior } from '../../../shared/utils/periodo'
-import { chaveDaSerieDoItem, projetarRecorrencias } from '../../../shared/utils/recorrencia'
 import type { Database } from '../database.types'
+import { paraLinhaDeControle } from './controleDeSerie'
 
 type EntradaRow = Database['public']['Tables']['entradas']['Row']
 
@@ -23,6 +24,8 @@ function paraEntrada(row: EntradaRow): Entrada {
     observacao: row.observacao,
     criadoEm: row.criado_em,
     atualizadoEm: row.atualizado_em,
+    serieId: row.serie_id,
+    editadoManualmente: row.editado_manualmente,
   }
 }
 
@@ -46,33 +49,27 @@ export class SupabaseEntradaRepository implements EntradaRepository {
   constructor(private readonly supabase: SupabaseClient<Database>) {}
 
   /**
-   * Entradas reais do período + projeção das séries recorrentes que ainda não têm
-   * ocorrência própria nesse mês (ver `projetarRecorrencias`). Busca todas as linhas
-   * do período (sem filtro de categoria/busca) porque a projeção precisa saber, sem
-   * ambiguidade, quais séries já foram lançadas de fato — o filtro do chamador é
-   * aplicado depois, sobre o conjunto já combinado. Público porque o dashboard
-   * (`SupabaseDashboardRepository`) reusa esta mesma projeção mês a mês.
+   * Entradas do período, da mais recente para a mais antiga. Recorrências já são
+   * registros reais (ver `ControleDeSerie`), então não há nada a projetar. Público
+   * porque o dashboard (`SupabaseDashboardRepository`) reusa esta mesma leitura mês a mês.
    */
-  async listarComProjecao(userId: ID, periodo: Periodo): Promise<Entrada[]> {
+  async listarDoPeriodo(userId: ID, periodo: Periodo): Promise<Entrada[]> {
     const { inicio, fim } = limitesDoMes(periodo)
 
-    const [doPeriodo, candidatas] = await Promise.all([
-      this.supabase.from('entradas').select('*').eq('user_id', userId).gte('data', inicio).lte('data', fim),
-      this.supabase.from('entradas').select('*').eq('user_id', userId).eq('recorrente', true).lt('data', inicio),
-    ])
+    const { data, error } = await this.supabase
+      .from('entradas')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('data', inicio)
+      .lte('data', fim)
+      .order('data', { ascending: false })
 
-    if (doPeriodo.error) throw doPeriodo.error
-    if (candidatas.error) throw candidatas.error
-
-    const reais = doPeriodo.data.map(paraEntrada)
-    const chavesRealizadas = new Set(reais.map(chaveDaSerieDoItem))
-    const projetadas = projetarRecorrencias(candidatas.data.map(paraEntrada), chavesRealizadas, periodo)
-
-    return [...reais, ...projetadas].sort((a, b) => b.data.localeCompare(a.data))
+    if (error) throw error
+    return data.map(paraEntrada)
   }
 
   async listar(userId: ID, filtro: EntradaFiltro): Promise<Paginated<Entrada>> {
-    const todas = await this.listarComProjecao(userId, filtro.periodo)
+    const todas = await this.listarDoPeriodo(userId, filtro.periodo)
     const busca = filtro.busca?.toLocaleLowerCase()
 
     const filtradas = todas
@@ -91,8 +88,8 @@ export class SupabaseEntradaRepository implements EntradaRepository {
 
   async resumo(userId: ID, periodo: Periodo): Promise<EntradaResumo> {
     const [doPeriodo, doMesAnterior, categorias] = await Promise.all([
-      this.listarComProjecao(userId, periodo),
-      this.listarComProjecao(userId, mesAnterior(periodo)),
+      this.listarDoPeriodo(userId, periodo),
+      this.listarDoPeriodo(userId, mesAnterior(periodo)),
       this.supabase.from('categorias').select('id, nome, cor'),
     ])
 
@@ -140,10 +137,10 @@ export class SupabaseEntradaRepository implements EntradaRepository {
     return data ? paraEntrada(data) : null
   }
 
-  async criar(userId: ID, payload: EntradaPayload): Promise<Entrada> {
+  async criar(userId: ID, payload: EntradaPayload, controle?: Partial<ControleDeSerie>): Promise<Entrada> {
     const { data, error } = await this.supabase
       .from('entradas')
-      .insert({ ...paraLinha(payload), user_id: userId })
+      .insert({ ...paraLinha(payload), ...paraLinhaDeControle(controle), user_id: userId })
       .select('*')
       .single()
 
@@ -151,10 +148,10 @@ export class SupabaseEntradaRepository implements EntradaRepository {
     return paraEntrada(data)
   }
 
-  async atualizar(userId: ID, id: ID, payload: EntradaPayload): Promise<Entrada> {
+  async atualizar(userId: ID, id: ID, payload: EntradaPayload, controle?: Partial<ControleDeSerie>): Promise<Entrada> {
     const { data, error } = await this.supabase
       .from('entradas')
-      .update(paraLinha(payload))
+      .update({ ...paraLinha(payload), ...paraLinhaDeControle(controle) })
       .eq('id', id)
       .eq('user_id', userId)
       .select('*')

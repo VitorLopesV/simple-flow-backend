@@ -22,6 +22,8 @@ function saida(sobrescritas: Partial<Saida> = {}): Saida {
     criadoEm: '2026-09-01T00:00:00.000Z',
     atualizadoEm: '2026-09-01T00:00:00.000Z',
     automatica: false,
+    serieId: null,
+    editadoManualmente: false,
     ...sobrescritas,
   }
 }
@@ -30,7 +32,7 @@ function criarRepositorio(existente: Saida | null) {
   return {
     listar: vi.fn(),
     resumo: vi.fn(),
-    listarComProjecao: vi.fn(),
+    listarDoPeriodo: vi.fn(),
     buscarPorId: vi.fn(async () => existente),
     criar: vi.fn(),
     atualizar: vi.fn(),

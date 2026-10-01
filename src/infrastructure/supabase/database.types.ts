@@ -96,9 +96,11 @@ export type Database = {
           criado_em: string
           data: string
           descricao: string
+          editado_manualmente: boolean
           id: string
           observacao: string | null
           recorrente: boolean
+          serie_id: string | null
           tipo: string
           user_id: string
           valor: number
@@ -109,9 +111,11 @@ export type Database = {
           criado_em?: string
           data: string
           descricao: string
+          editado_manualmente?: boolean
           id?: string
           observacao?: string | null
           recorrente?: boolean
+          serie_id?: string | null
           tipo: string
           user_id: string
           valor: number
@@ -122,9 +126,11 @@ export type Database = {
           criado_em?: string
           data?: string
           descricao?: string
+          editado_manualmente?: boolean
           id?: string
           observacao?: string | null
           recorrente?: boolean
+          serie_id?: string | null
           tipo?: string
           user_id?: string
           valor?: number
@@ -216,11 +222,13 @@ export type Database = {
           criado_em: string
           data: string
           descricao: string
+          editado_manualmente: boolean
           forma_pagamento: string
           id: string
           observacao: string | null
           pago_em: string | null
           recorrente: boolean
+          serie_id: string | null
           status: string
           tipo: string
           user_id: string
@@ -235,11 +243,13 @@ export type Database = {
           criado_em?: string
           data: string
           descricao: string
+          editado_manualmente?: boolean
           forma_pagamento: string
           id?: string
           observacao?: string | null
           pago_em?: string | null
           recorrente?: boolean
+          serie_id?: string | null
           status?: string
           tipo?: string
           user_id: string
@@ -254,11 +264,13 @@ export type Database = {
           criado_em?: string
           data?: string
           descricao?: string
+          editado_manualmente?: boolean
           forma_pagamento?: string
           id?: string
           observacao?: string | null
           pago_em?: string | null
           recorrente?: boolean
+          serie_id?: string | null
           status?: string
           tipo?: string
           user_id?: string
@@ -290,11 +302,13 @@ export type Database = {
           criado_em: string
           data: string
           descricao: string
+          editado_manualmente: boolean
           fatura_id: string
           id: string
           observacao: string | null
           parcela_atual: number
           recorrente: boolean
+          serie_id: string | null
           tipo: string
           total_parcelas: number
           user_id: string
@@ -307,11 +321,13 @@ export type Database = {
           criado_em?: string
           data: string
           descricao: string
+          editado_manualmente?: boolean
           fatura_id: string
           id?: string
           observacao?: string | null
           parcela_atual?: number
           recorrente?: boolean
+          serie_id?: string | null
           tipo?: string
           total_parcelas?: number
           user_id: string
@@ -324,11 +340,13 @@ export type Database = {
           criado_em?: string
           data?: string
           descricao?: string
+          editado_manualmente?: boolean
           fatura_id?: string
           id?: string
           observacao?: string | null
           parcela_atual?: number
           recorrente?: boolean
+          serie_id?: string | null
           tipo?: string
           total_parcelas?: number
           user_id?: string

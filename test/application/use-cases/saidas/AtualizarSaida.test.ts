@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AtualizarSaida } from '../../../../src/application/use-cases/saidas/AtualizarSaida'
 import type { Saida, SaidaPayload } from '../../../../src/domain/entities/Saida'
-import { ConflictError, NotFoundError } from '../../../../src/domain/errors/DomainError'
-import type { SaidaRepository } from '../../../../src/domain/repositories/SaidaRepository'
+import { ConflictError, NotFoundError, ValidationError } from '../../../../src/domain/errors/DomainError'
+import { CATEGORIAS, criarCategoriaRepositoryFake, criarSaidaRepositoryFake } from '../../../helpers/repositoriosFake'
 
 const USER_ID = 'user-1'
 const ID_SAIDA = '123e4567-e89b-12d3-a456-426614174000'
-const ID_PROJETADO = `${ID_SAIDA}_2026-09`
+const SERIE = 'serie-1'
 const HOJE = '2026-09-15'
 
 function saida(sobrescritas: Partial<Saida> = {}): Saida {
@@ -16,7 +16,7 @@ function saida(sobrescritas: Partial<Saida> = {}): Saida {
     descricao: 'Aluguel',
     valor: 1500,
     data: '2026-08-10',
-    categoriaId: 'cat-1',
+    categoriaId: CATEGORIAS.despesaFixa.id,
     tipo: 'OUTROS',
     status: 'PENDENTE',
     pagoEm: null,
@@ -25,6 +25,8 @@ function saida(sobrescritas: Partial<Saida> = {}): Saida {
     criadoEm: '2026-08-01T00:00:00.000Z',
     atualizadoEm: '2026-08-01T00:00:00.000Z',
     automatica: false,
+    serieId: null,
+    editadoManualmente: false,
     ...sobrescritas,
   }
 }
@@ -34,7 +36,7 @@ function payload(sobrescritas: Partial<SaidaPayload> = {}): SaidaPayload {
     descricao: 'Aluguel',
     valor: 1500,
     data: '2026-08-10',
-    categoriaId: 'cat-1',
+    categoriaId: CATEGORIAS.despesaFixa.id,
     tipo: 'OUTROS',
     status: 'PENDENTE',
     formaPagamento: 'PIX',
@@ -43,17 +45,17 @@ function payload(sobrescritas: Partial<SaidaPayload> = {}): SaidaPayload {
   }
 }
 
-function criarRepositorio(existentes: Saida[] = []) {
-  return {
-    listar: vi.fn(),
-    resumo: vi.fn(),
-    listarComProjecao: vi.fn(),
-    buscarPorId: vi.fn(async (_userId: string, id: string) => existentes.find((s) => s.id === id) ?? null),
-    criar: vi.fn(async (_userId: string, dados: SaidaPayload) => saida({ ...dados, id: 'nova' })),
-    atualizar: vi.fn(async (_userId: string, id: string, dados: SaidaPayload) => saida({ ...dados, id })),
-    remover: vi.fn(),
-  } satisfies SaidaRepository
+function criarRepositorios(existentes: Saida[] = []) {
+  const saidas = criarSaidaRepositoryFake()
+  saidas.buscarPorId.mockImplementation(async (_userId: string, id: string) => existentes.find((s) => s.id === id) ?? null)
+  saidas.atualizar.mockImplementation(async (_userId: string, id: string, dados: SaidaPayload, controle = {}) =>
+    saida({ ...existentes.find((s) => s.id === id), ...dados, ...controle }),
+  )
+  return { saidas, categorias: criarCategoriaRepositoryFake() }
 }
+
+/** Dados que chegaram ao repositório na primeira chamada de `atualizar`. */
+const dadosAtualizados = (saidas: ReturnType<typeof criarSaidaRepositoryFake>) => saidas.atualizar.mock.calls[0]![2]
 
 describe('AtualizarSaida', () => {
   beforeEach(() => {
@@ -66,150 +68,160 @@ describe('AtualizarSaida', () => {
   })
 
   it('define pagoEm como hoje ao mudar de PENDENTE para PAGO', async () => {
-    const repositorio = criarRepositorio([saida({ status: 'PENDENTE' })])
+    const { saidas, categorias } = criarRepositorios([saida({ status: 'PENDENTE' })])
 
-    await new AtualizarSaida(repositorio).execute(USER_ID, ID_SAIDA, payload({ status: 'PAGO' }))
+    await new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, payload({ status: 'PAGO' }))
 
-    expect(repositorio.atualizar).toHaveBeenCalledWith(USER_ID, ID_SAIDA, expect.objectContaining({ pagoEm: HOJE }))
+    expect(dadosAtualizados(saidas).pagoEm).toBe(HOJE)
   })
 
   it('preserva o pagoEm original ao editar uma saída já paga que continua paga', async () => {
-    const repositorio = criarRepositorio([saida({ status: 'PAGO', pagoEm: '2026-08-12' })])
+    const { saidas, categorias } = criarRepositorios([saida({ status: 'PAGO', pagoEm: '2026-08-12' })])
 
-    await new AtualizarSaida(repositorio).execute(USER_ID, ID_SAIDA, payload({ status: 'PAGO', valor: 1600 }))
+    await new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, payload({ status: 'PAGO', valor: 1600 }))
 
-    expect(repositorio.atualizar).toHaveBeenCalledWith(
-      USER_ID,
-      ID_SAIDA,
-      expect.objectContaining({ pagoEm: '2026-08-12' }),
-    )
+    expect(dadosAtualizados(saidas).pagoEm).toBe('2026-08-12')
   })
 
   it('limpa pagoEm ao voltar de PAGO para PENDENTE', async () => {
-    const repositorio = criarRepositorio([saida({ status: 'PAGO', pagoEm: '2026-08-12' })])
+    const { saidas, categorias } = criarRepositorios([saida({ status: 'PAGO', pagoEm: '2026-08-12' })])
 
-    await new AtualizarSaida(repositorio).execute(USER_ID, ID_SAIDA, payload({ status: 'PENDENTE' }))
+    await new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, payload({ status: 'PENDENTE' }))
 
-    expect(repositorio.atualizar).toHaveBeenCalledWith(USER_ID, ID_SAIDA, expect.objectContaining({ pagoEm: null }))
+    expect(dadosAtualizados(saidas).pagoEm).toBeNull()
   })
 
   it('define pagoEm como hoje para saída PAGA legada sem pagoEm', async () => {
-    const repositorio = criarRepositorio([saida({ status: 'PAGO', pagoEm: null })])
+    const { saidas, categorias } = criarRepositorios([saida({ status: 'PAGO', pagoEm: null })])
 
-    await new AtualizarSaida(repositorio).execute(USER_ID, ID_SAIDA, payload({ status: 'PAGO' }))
+    await new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, payload({ status: 'PAGO' }))
 
-    expect(repositorio.atualizar).toHaveBeenCalledWith(USER_ID, ID_SAIDA, expect.objectContaining({ pagoEm: HOJE }))
+    expect(dadosAtualizados(saidas).pagoEm).toBe(HOJE)
+  })
+
+  it('atualiza só o registro informado, sem criar nada', async () => {
+    const { saidas, categorias } = criarRepositorios([saida({ recorrente: true, serieId: SERIE })])
+
+    await new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, payload({ recorrente: true, valor: 1700 }))
+
+    expect(saidas.atualizar).toHaveBeenCalledTimes(1)
+    expect(saidas.atualizar.mock.calls[0]![1]).toBe(ID_SAIDA)
+    expect(saidas.criar).not.toHaveBeenCalled()
+  })
+
+  it('marca como editado quando algo muda — inclusive marcar como PAGO', async () => {
+    const { saidas, categorias } = criarRepositorios([saida()])
+
+    await new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, payload({ status: 'PAGO' }))
+
+    expect(saidas.atualizar.mock.calls[0]![3]).toEqual({ editadoManualmente: true })
+  })
+
+  it('não marca como editado quando nada muda', async () => {
+    const { saidas, categorias } = criarRepositorios([saida()])
+
+    await new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, payload())
+
+    expect(saidas.atualizar.mock.calls[0]![3]).toEqual({ editadoManualmente: false })
   })
 
   it('mantém a descrição atual quando atual e payload são recorrentes', async () => {
-    const repositorio = criarRepositorio([saida({ recorrente: true, descricao: 'Aluguel' })])
+    const { saidas, categorias } = criarRepositorios([saida({ recorrente: true, serieId: SERIE })])
 
-    await new AtualizarSaida(repositorio).execute(
+    await new AtualizarSaida(saidas, categorias).execute(
       USER_ID,
       ID_SAIDA,
       payload({ recorrente: true, descricao: 'Aluguel novo' }),
     )
 
-    expect(repositorio.atualizar).toHaveBeenCalledWith(
-      USER_ID,
-      ID_SAIDA,
-      expect.objectContaining({ descricao: 'Aluguel' }),
-    )
+    expect(dadosAtualizados(saidas).descricao).toBe('Aluguel')
   })
 
   it('aplica a nova descrição quando a saída atual não é recorrente', async () => {
-    const repositorio = criarRepositorio([saida({ recorrente: false })])
+    const { saidas, categorias } = criarRepositorios([saida({ recorrente: false })])
 
-    await new AtualizarSaida(repositorio).execute(USER_ID, ID_SAIDA, payload({ descricao: 'Aluguel novo' }))
+    await new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, payload({ descricao: 'Aluguel novo' }))
 
-    expect(repositorio.atualizar).toHaveBeenCalledWith(
-      USER_ID,
-      ID_SAIDA,
-      expect.objectContaining({ descricao: 'Aluguel novo' }),
-    )
+    expect(dadosAtualizados(saidas).descricao).toBe('Aluguel novo')
   })
 
   it('aplica a nova descrição quando a saída recorrente deixa de ser recorrente', async () => {
-    const repositorio = criarRepositorio([saida({ recorrente: true })])
+    const { saidas, categorias } = criarRepositorios([saida({ recorrente: true, serieId: SERIE })])
 
-    await new AtualizarSaida(repositorio).execute(
+    await new AtualizarSaida(saidas, categorias).execute(
       USER_ID,
       ID_SAIDA,
       payload({ recorrente: false, descricao: 'Aluguel novo' }),
     )
 
-    expect(repositorio.atualizar).toHaveBeenCalledWith(
+    expect(dadosAtualizados(saidas)).toMatchObject({ descricao: 'Aluguel novo', recorrente: false })
+  })
+
+  it('trocar uma saída recorrente para categoria não fixa desliga a recorrência', async () => {
+    const { saidas, categorias } = criarRepositorios([saida({ recorrente: true, serieId: SERIE })])
+
+    await new AtualizarSaida(saidas, categorias).execute(
       USER_ID,
       ID_SAIDA,
-      expect.objectContaining({ descricao: 'Aluguel novo' }),
+      payload({ recorrente: true, categoriaId: CATEGORIAS.despesaVariavel.id }),
     )
+
+    expect(dadosAtualizados(saidas)).toMatchObject({ recorrente: false, categoriaId: CATEGORIAS.despesaVariavel.id })
+  })
+
+  it('rejeita ligar a recorrência numa categoria não fixa com 422', async () => {
+    const { saidas, categorias } = criarRepositorios([saida({ categoriaId: CATEGORIAS.investimento.id })])
+
+    await expect(
+      new AtualizarSaida(saidas, categorias).execute(
+        USER_ID,
+        ID_SAIDA,
+        payload({ recorrente: true, categoriaId: CATEGORIAS.investimento.id }),
+      ),
+    ).rejects.toThrow(new ValidationError('Lançamento recorrente só é permitido na categoria Despesa Fixa.'))
+    expect(saidas.atualizar).not.toHaveBeenCalled()
+  })
+
+  it('rejeita categoria inexistente ou de entrada com 422', async () => {
+    const { saidas, categorias } = criarRepositorios([saida()])
+
+    for (const categoriaId of ['cat-x', CATEGORIAS.rendaFixa.id]) {
+      await expect(
+        new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, payload({ categoriaId })),
+      ).rejects.toThrow(new ValidationError('Categoria inválida.'))
+    }
+    expect(saidas.atualizar).not.toHaveBeenCalled()
   })
 
   it('lança ConflictError para saída automática sem chamar atualizar', async () => {
-    const repositorio = criarRepositorio([saida({ automatica: true })])
+    const { saidas, categorias } = criarRepositorios([saida({ automatica: true })])
 
-    const promessa = new AtualizarSaida(repositorio).execute(USER_ID, ID_SAIDA, payload())
+    const promessa = new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, payload())
 
     await expect(promessa).rejects.toBeInstanceOf(ConflictError)
     await expect(promessa).rejects.toMatchObject({ status: 409 })
-    expect(repositorio.atualizar).not.toHaveBeenCalled()
+    expect(saidas.atualizar).not.toHaveBeenCalled()
   })
 
-  it('materializa id projetado de origem recorrente com criar, descrição da origem e pagoEm conforme o status', async () => {
-    const repositorio = criarRepositorio([saida({ recorrente: true, descricao: 'Aluguel' })])
-    const dados = payload({ descricao: 'Outro nome', status: 'PENDENTE', data: '2026-09-10' })
+  it('lança NotFoundError para id inexistente (inclusive o antigo id sintético de projeção)', async () => {
+    const { saidas, categorias } = criarRepositorios([saida({ recorrente: true })])
 
-    await new AtualizarSaida(repositorio).execute(USER_ID, ID_PROJETADO, dados)
-
-    expect(repositorio.criar).toHaveBeenCalledWith(USER_ID, { ...dados, descricao: 'Aluguel', pagoEm: null })
-    expect(repositorio.atualizar).not.toHaveBeenCalled()
+    for (const id of ['223e4567-e89b-12d3-a456-426614174000', `${ID_SAIDA}_2026-09`]) {
+      await expect(new AtualizarSaida(saidas, categorias).execute(USER_ID, id, payload())).rejects.toBeInstanceOf(
+        NotFoundError,
+      )
+    }
+    expect(saidas.atualizar).not.toHaveBeenCalled()
+    expect(saidas.criar).not.toHaveBeenCalled()
   })
 
-  it('cria a linha do id projetado com pagoEm de hoje quando o status é PAGO', async () => {
-    const repositorio = criarRepositorio([saida({ recorrente: true })])
+  it('repassa o userId a todas as chamadas dos repositórios', async () => {
+    const { saidas, categorias } = criarRepositorios([saida()])
 
-    await new AtualizarSaida(repositorio).execute(USER_ID, ID_PROJETADO, payload({ status: 'PAGO' }))
+    await new AtualizarSaida(saidas, categorias).execute(USER_ID, ID_SAIDA, payload())
 
-    expect(repositorio.criar).toHaveBeenCalledWith(USER_ID, expect.objectContaining({ status: 'PAGO', pagoEm: HOJE }))
-  })
-
-  it('lança NotFoundError para id projetado cuja origem não é recorrente', async () => {
-    const repositorio = criarRepositorio([saida({ recorrente: false })])
-
-    const promessa = new AtualizarSaida(repositorio).execute(USER_ID, ID_PROJETADO, payload())
-
-    await expect(promessa).rejects.toBeInstanceOf(NotFoundError)
-    await expect(promessa).rejects.toMatchObject({ status: 404 })
-    expect(repositorio.criar).not.toHaveBeenCalled()
-  })
-
-  it('lança NotFoundError para id projetado cuja origem não existe', async () => {
-    const repositorio = criarRepositorio()
-
-    await expect(new AtualizarSaida(repositorio).execute(USER_ID, ID_PROJETADO, payload())).rejects.toBeInstanceOf(
-      NotFoundError,
-    )
-    expect(repositorio.criar).not.toHaveBeenCalled()
-  })
-
-  it('lança NotFoundError para id comum inexistente', async () => {
-    const repositorio = criarRepositorio()
-
-    await expect(new AtualizarSaida(repositorio).execute(USER_ID, ID_SAIDA, payload())).rejects.toBeInstanceOf(
-      NotFoundError,
-    )
-    expect(repositorio.atualizar).not.toHaveBeenCalled()
-  })
-
-  it('repassa o userId a todas as chamadas do repositório', async () => {
-    const repositorio = criarRepositorio([saida({ recorrente: true })])
-    const useCase = new AtualizarSaida(repositorio)
-
-    await useCase.execute(USER_ID, ID_SAIDA, payload())
-    await useCase.execute(USER_ID, ID_PROJETADO, payload())
-
-    expect(repositorio.buscarPorId.mock.calls.every(([userId]) => userId === USER_ID)).toBe(true)
-    expect(repositorio.atualizar.mock.calls[0]![0]).toBe(USER_ID)
-    expect(repositorio.criar.mock.calls[0]![0]).toBe(USER_ID)
+    expect(saidas.buscarPorId.mock.calls[0]![0]).toBe(USER_ID)
+    expect(categorias.buscarPorId.mock.calls[0]![0]).toBe(USER_ID)
+    expect(saidas.atualizar.mock.calls[0]![0]).toBe(USER_ID)
   })
 })

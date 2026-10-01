@@ -6,11 +6,16 @@ import { ListarEntradas } from '../../../application/use-cases/entradas/ListarEn
 import { RemoverEntrada } from '../../../application/use-cases/entradas/RemoverEntrada'
 import { ResumoEntradas } from '../../../application/use-cases/entradas/ResumoEntradas'
 import type { EntradaTipo } from '../../../domain/entities/Entrada'
+import { SupabaseCategoriaRepository } from '../../../infrastructure/supabase/repositories/SupabaseCategoriaRepository'
 import { SupabaseEntradaRepository } from '../../../infrastructure/supabase/repositories/SupabaseEntradaRepository'
 import { paraPeriodo } from '../../../shared/utils/periodo'
 
 function repositorio(req: Request) {
   return new SupabaseEntradaRepository(req.supabase!)
+}
+
+function categoriaRepositorio(req: Request) {
+  return new SupabaseCategoriaRepository(req.supabase!)
 }
 
 export const entradasController = {
@@ -43,12 +48,13 @@ export const entradasController = {
   },
 
   async criar(req: Request, res: Response) {
-    const entrada = await new CriarEntrada(repositorio(req)).execute(req.usuario!.id, req.body)
+    const entrada = await new CriarEntrada(repositorio(req), categoriaRepositorio(req)).execute(req.usuario!.id, req.body)
     res.status(201).json(entrada)
   },
 
   async atualizar(req: Request, res: Response) {
-    const entrada = await new AtualizarEntrada(repositorio(req)).execute(req.usuario!.id, req.params.id, req.body)
+    const atualizar = new AtualizarEntrada(repositorio(req), categoriaRepositorio(req))
+    const entrada = await atualizar.execute(req.usuario!.id, req.params.id, req.body)
     res.json(entrada)
   },
 

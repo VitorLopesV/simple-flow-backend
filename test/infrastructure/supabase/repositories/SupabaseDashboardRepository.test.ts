@@ -36,8 +36,7 @@ function noIntervalo<T>(consulta: ConsultaRegistrada, linhas: T[], coluna: keyof
 /**
  * Monta um banco falso em que cada query por período devolve só as linhas daquele
  * mês — o dashboard consulta os 6 meses em paralelo, então a resposta precisa
- * depender do filtro, não da ordem. Queries de candidatas a recorrência (`lt`)
- * voltam vazias: a projeção tem testes próprios nos repositórios de entradas/saídas.
+ * depender do filtro, não da ordem.
  */
 function cenario({
   entradas = [] as EntradaRow[],
@@ -46,15 +45,12 @@ function cenario({
   transacoes = [] as TransacaoRow[],
   categorias = ok(CATEGORIAS),
 } = {}) {
-  const candidatas = (consulta: ConsultaRegistrada) => usou(consulta, 'lt')
-
   return criarSupabaseFake({
-    entradas: (consulta) => ok(candidatas(consulta) ? [] : noIntervalo(consulta, entradas, 'data')),
-    saidas: (consulta) => ok(candidatas(consulta) ? [] : noIntervalo(consulta, saidas, 'data')),
+    entradas: (consulta) => ok(noIntervalo(consulta, entradas, 'data')),
+    saidas: (consulta) => ok(noIntervalo(consulta, saidas, 'data')),
     faturas: (consulta) => ok(noIntervalo(consulta, faturas, 'vencimento')),
     cartoes: () => ok([{ id: 'cartao-1', nome: 'Nubank' }]),
     transacoes_cartao: (consulta) => {
-      if (candidatas(consulta)) return ok([])
       const [, faturaIds] = argumentos(consulta, 'in') ?? []
       return ok(transacoes.filter((transacao) => (faturaIds as string[]).includes(transacao.fatura_id)))
     },
@@ -401,8 +397,9 @@ describe('SupabaseDashboardRepository', () => {
       ...fake.consultasDe('cartoes'),
       ...fake.consultasDe('transacoes_cartao'),
     ]
-    expect(fake.consultasDe('entradas')).toHaveLength(12)
-    expect(fake.consultasDe('saidas')).toHaveLength(12)
+    // Uma query por mês da janela de 6 meses — sem as antigas consultas de candidatas a recorrência.
+    expect(fake.consultasDe('entradas')).toHaveLength(6)
+    expect(fake.consultasDe('saidas')).toHaveLength(6)
     for (const consulta of consultasComDono) {
       expect(consulta.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
     }

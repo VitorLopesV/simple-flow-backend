@@ -299,13 +299,14 @@ describe('rotas HTTP', () => {
       expect(corpo.params).toEqual({ cartaoId: UUID })
     })
 
-    it.each(['entradas', 'saidas'])('PUT /api/%s/:id aceita o id sintético de uma ocorrência projetada', async (recurso) => {
-      const { status, corpo } = await requisitar('PUT', `/api/${recurso}/${UUID}_2026-08`, {
+    it.each(['entradas', 'saidas'])('PUT /api/%s/:id rejeita o antigo id sintético de projeção com 422', async (recurso) => {
+      const { status, corpo } = await requisitar('PUT', `/api/${recurso}/${UUID}_2026-10`, {
         body: recurso === 'entradas' ? ENTRADA : SAIDA,
       })
 
-      expect(status).toBe(200)
-      expect(corpo.params).toEqual({ id: `${UUID}_2026-08` })
+      expect(status).toBe(422)
+      expect(corpo).toEqual({ message: 'Identificador inválido.' })
+      for (const acao of todasAsAcoes()) expect(acao).not.toHaveBeenCalled()
     })
   })
 

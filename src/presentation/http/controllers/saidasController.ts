@@ -5,12 +5,17 @@ import { CriarSaida } from '../../../application/use-cases/saidas/CriarSaida'
 import { ListarSaidas } from '../../../application/use-cases/saidas/ListarSaidas'
 import { RemoverSaida } from '../../../application/use-cases/saidas/RemoverSaida'
 import { ResumoSaidas } from '../../../application/use-cases/saidas/ResumoSaidas'
+import { SupabaseCategoriaRepository } from '../../../infrastructure/supabase/repositories/SupabaseCategoriaRepository'
 import { SupabaseSaidaRepository } from '../../../infrastructure/supabase/repositories/SupabaseSaidaRepository'
 import type { SaidaStatus } from '../../../domain/entities/Saida'
 import { paraPeriodo } from '../../../shared/utils/periodo'
 
 function repositorio(req: Request) {
   return new SupabaseSaidaRepository(req.supabase!)
+}
+
+function categoriaRepositorio(req: Request) {
+  return new SupabaseCategoriaRepository(req.supabase!)
 }
 
 export const saidasController = {
@@ -43,12 +48,13 @@ export const saidasController = {
   },
 
   async criar(req: Request, res: Response) {
-    const saida = await new CriarSaida(repositorio(req)).execute(req.usuario!.id, req.body)
+    const saida = await new CriarSaida(repositorio(req), categoriaRepositorio(req)).execute(req.usuario!.id, req.body)
     res.status(201).json(saida)
   },
 
   async atualizar(req: Request, res: Response) {
-    const saida = await new AtualizarSaida(repositorio(req)).execute(req.usuario!.id, req.params.id, req.body)
+    const atualizar = new AtualizarSaida(repositorio(req), categoriaRepositorio(req))
+    const saida = await atualizar.execute(req.usuario!.id, req.params.id, req.body)
     res.json(saida)
   },
 

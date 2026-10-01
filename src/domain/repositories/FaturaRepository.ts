@@ -4,12 +4,13 @@ import type {
   TransacaoCartao,
   TransacaoCartaoPayload,
 } from '../entities/Fatura'
+import type { ControleDeSerie } from '../entities/Recorrencia'
 import type { ID, Periodo } from '../../shared/types/common'
 
 /**
  * Fatura que vence dentro de um período, já com o total consolidado — é a forma
  * como o cartão aparece na aba Saídas (uma saída derivada por fatura, ver
- * `SupabaseSaidaRepository.listarComProjecao`).
+ * `SupabaseSaidaRepository.listarDoPeriodo`).
  */
 export interface FaturaComoSaida {
   faturaId: ID
@@ -20,11 +21,7 @@ export interface FaturaComoSaida {
   total: number
   paga: boolean
   pagoEm: string | null
-  /**
-   * Transações que compõem `total`: as lançadas na fatura mais as recorrências ainda
-   * não lançadas na competência (projetadas, nunca persistidas). O dashboard usa para
-   * detalhar os gastos de cartão por tipo e por categoria.
-   */
+  /** Transações que compõem `total` — o dashboard usa para detalhar os gastos de cartão por tipo e por categoria. */
   transacoes: TransacaoCartao[]
 }
 
@@ -48,6 +45,7 @@ export interface FaturaRepository {
     cartaoId: ID,
     payload: TransacaoCartaoPayload,
     datas: DatasDaFatura,
+    controle?: Partial<ControleDeSerie>,
   ): Promise<TransacaoCartao>
   /** Move a transação para a fatura da nova competência quando a data muda de mês. */
   atualizarTransacao(
@@ -55,6 +53,8 @@ export interface FaturaRepository {
     id: ID,
     payload: TransacaoCartaoPayload,
     datas: DatasDaFatura,
+    /** Campos ausentes mantêm o valor gravado. */
+    controle?: Partial<ControleDeSerie>,
   ): Promise<TransacaoCartao>
   removerTransacao(userId: ID, id: ID): Promise<void>
 }

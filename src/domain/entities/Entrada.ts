@@ -1,9 +1,10 @@
 import type { ID } from '../../shared/types/common'
+import type { ControleDeSerie } from './Recorrencia'
 
 /** Detalhe da entrada, independente da categoria (que é o grupo: Renda Fixa, Renda Variável, Investimentos, Outros). */
 export type EntradaTipo = 'SALARIO' | 'FREELANCE' | 'RENDIMENTOS' | 'REEMBOLSO'
 
-export interface Entrada {
+export interface Entrada extends ControleDeSerie {
   id: ID
   descricao: string
   /** Valor em BRL, sempre positivo. */
@@ -16,16 +17,9 @@ export interface Entrada {
   observacao?: string | null
   criadoEm: string
   atualizadoEm: string
-  /**
-   * Preenchido só nas ocorrências futuras projetadas a partir de um lançamento
-   * recorrente (ver `shared/utils/recorrencia.ts`) — nunca persistido, recalculado
-   * a cada leitura. Editar uma dessas ocorrências (ver `AtualizarEntrada`) materializa
-   * uma linha própria para aquele mês, independente do original.
-   */
-  origemRecorrenciaId?: ID
 }
 
-export type EntradaPayload = Omit<Entrada, 'id' | 'criadoEm' | 'atualizadoEm'>
+export type EntradaPayload = Omit<Entrada, 'id' | 'criadoEm' | 'atualizadoEm' | keyof ControleDeSerie>
 
 export interface EntradaResumo {
   total: number

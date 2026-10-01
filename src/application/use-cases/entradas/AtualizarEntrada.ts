@@ -1,31 +1,38 @@
-import { NotFoundError } from '../../../domain/errors/DomainError'
+import { NotFoundError, ValidationError } from '../../../domain/errors/DomainError'
 import type { Entrada, EntradaPayload } from '../../../domain/entities/Entrada'
+import type { CategoriaRepository } from '../../../domain/repositories/CategoriaRepository'
 import type { EntradaRepository } from '../../../domain/repositories/EntradaRepository'
-import { origemDoIdProjetado } from '../../../shared/utils/recorrencia'
 import type { ID } from '../../../shared/types/common'
+import { categoriaPermiteRecorrencia, houveAlteracao } from '../../../shared/utils/recorrencia'
+import { MENSAGEM_RECORRENCIA_ENTRADA } from './CriarEntrada'
 
+/** Edita só o registro informado — os outros meses da série não mudam. */
 export class AtualizarEntrada {
-  constructor(private readonly entradaRepository: EntradaRepository) {}
+  constructor(
+    private readonly entradaRepository: EntradaRepository,
+    private readonly categoriaRepository: CategoriaRepository,
+  ) {}
 
   async execute(userId: ID, id: ID, payload: EntradaPayload): Promise<Entrada> {
     const atual = await this.entradaRepository.buscarPorId(userId, id)
-    if (atual) {
-      // Nome de uma entrada recorrente é fixo entre suas ocorrências (ver abaixo) —
-      // só aceita mudança de descrição quando a entrada deixa de ser recorrente.
-      const descricao = atual.recorrente && payload.recorrente ? atual.descricao : payload.descricao
-      return this.entradaRepository.atualizar(userId, id, { ...payload, descricao })
+    if (!atual) throw new NotFoundError('Entrada')
+
+    const categoria = await this.categoriaRepository.buscarPorId(userId, payload.categoriaId)
+    if (categoria?.movimento !== 'ENTRADA') throw new ValidationError('Categoria inválida.')
+
+    const permiteRecorrencia = categoriaPermiteRecorrencia(categoria)
+    if (payload.recorrente && !permiteRecorrencia && !atual.recorrente) {
+      throw new ValidationError(MENSAGEM_RECORRENCIA_ENTRADA)
     }
 
-    // Ocorrência projetada de uma recorrência (id sintético, nunca persistido — ver
-    // `projetarRecorrencias`): editá-la materializa uma linha própria para este mês,
-    // independente das demais, em vez de mudar o lançamento original.
-    const projetado = origemDoIdProjetado(id)
-    const origem = projetado && (await this.entradaRepository.buscarPorId(userId, projetado.origemId))
-    if (!origem?.recorrente) throw new NotFoundError('Entrada')
+    // Trocar uma entrada recorrente para uma categoria não fixa desliga a recorrência.
+    const recorrente = payload.recorrente && permiteRecorrencia
+    // Nome de uma entrada recorrente é fixo — só muda quando ela deixa de ser recorrente.
+    const descricao = atual.recorrente && recorrente ? atual.descricao : payload.descricao
+    const dados = { ...payload, recorrente, descricao }
 
-    // Nome vem sempre do lançamento original, nunca do payload: as ocorrências de
-    // uma série só continuam sendo reconhecidas como a mesma série enquanto
-    // `chaveDaSerie` (descrição + categoria) casar entre elas.
-    return this.entradaRepository.criar(userId, { ...payload, descricao: origem.descricao })
+    return this.entradaRepository.atualizar(userId, id, dados, {
+      editadoManualmente: atual.editadoManualmente || houveAlteracao(atual, dados),
+    })
   }
 }

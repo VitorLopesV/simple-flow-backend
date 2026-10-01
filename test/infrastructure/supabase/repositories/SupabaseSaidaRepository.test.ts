@@ -30,15 +30,14 @@ function noIntervalo<T>(consulta: ConsultaRegistrada, linhas: T[], coluna: keyof
   return linhas.filter((linha) => String(linha[coluna]) >= String(inicio) && String(linha[coluna]) <= String(fim))
 }
 
-/** Banco falso para `listarComProjecao`: saídas por período, candidatas recorrentes e faturas vencendo no mês. */
+/** Banco falso para `listarDoPeriodo`: saídas por período e faturas vencendo no mês. */
 function cenario({
   saidas = [] as SaidaRow[],
-  candidatas = [] as SaidaRow[],
   faturas = [] as FaturaRow[],
   categorias = ok([{ id: 'cat-fixa', nome: 'Despesa Fixa', cor: '#ef4444' }]),
 } = {}) {
   return criarSupabaseFake({
-    saidas: (consulta) => ok(usou(consulta, 'lt') ? candidatas : noIntervalo(consulta, saidas, 'data')),
+    saidas: (consulta) => ok(noIntervalo(consulta, saidas, 'data')),
     faturas: (consulta) => ok(noIntervalo(consulta, faturas, 'vencimento')),
     cartoes: () => ok([{ id: 'cartao-1', nome: 'Nubank' }]),
     transacoes_cartao: () => ok([]),
@@ -47,7 +46,7 @@ function cenario({
 }
 
 describe('SupabaseSaidaRepository', () => {
-  describe('listarComProjecao', () => {
+  describe('listarDoPeriodo', () => {
     it('mapeia as linhas de snake_case para camelCase, convertendo valor para número', async () => {
       const linha = linhaSaida({
         valor: '99.9' as unknown as number,
@@ -56,10 +55,12 @@ describe('SupabaseSaidaRepository', () => {
         pago_em: null,
         forma_pagamento: 'BOLETO',
         observacao: 'obs',
+        serie_id: 'serie-1',
+        editado_manualmente: true,
       })
       const { client } = cenario({ saidas: [linha] })
 
-      const [saida] = await new SupabaseSaidaRepository(client).listarComProjecao(USER_ID, AGOSTO)
+      const [saida] = await new SupabaseSaidaRepository(client).listarDoPeriodo(USER_ID, AGOSTO)
 
       expect(saida).toEqual({
         id: 'sai-1',
@@ -78,57 +79,38 @@ describe('SupabaseSaidaRepository', () => {
         criadoEm: '2026-08-01T00:00:00.000Z',
         atualizadoEm: '2026-08-02T00:00:00.000Z',
         automatica: false,
+        serieId: 'serie-1',
+        editadoManualmente: true,
       })
     })
 
-    it('consulta o mês inteiro e as candidatas recorrentes anteriores, sempre filtrando por user_id', async () => {
+    it('consulta só o mês informado e as faturas que vencem nele, sempre filtrando por user_id', async () => {
       const fake = cenario()
 
-      await new SupabaseSaidaRepository(fake.client).listarComProjecao(USER_ID, AGOSTO)
+      await new SupabaseSaidaRepository(fake.client).listarDoPeriodo(USER_ID, AGOSTO)
 
-      const [doPeriodo, candidatas] = fake.consultasDe('saidas')
-      expect(doPeriodo!.chamadas).toEqual([
+      expect(fake.consultasDe('saidas')).toHaveLength(1)
+      expect(fake.consultasDe('saidas')[0]!.chamadas).toEqual([
         ['select', '*'],
         ['eq', 'user_id', USER_ID],
         ['gte', 'data', '2026-08-01'],
         ['lte', 'data', '2026-08-31'],
       ])
-      expect(candidatas!.chamadas).toEqual([
-        ['select', '*'],
-        ['eq', 'user_id', USER_ID],
-        ['eq', 'recorrente', true],
-        ['lt', 'data', '2026-08-01'],
-      ])
       expect(fake.consultasDe('faturas')[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
     })
 
-    it('projeta a série recorrente sem lançamento no mês, avançando data e vencimento', async () => {
-      const origem = linhaSaida({ id: 'origem', data: '2026-07-05', vencimento: '2026-07-10', recorrente: true })
-      const { client } = cenario({ candidatas: [origem] })
-
-      const [projetada] = await new SupabaseSaidaRepository(client).listarComProjecao(USER_ID, AGOSTO)
-
-      expect(projetada).toMatchObject({
-        id: 'origem_2026-08',
-        data: '2026-08-05',
-        vencimento: '2026-08-10',
-        origemRecorrenciaId: 'origem',
+    it('não projeta nada: série recorrente de meses anteriores não aparece num mês sem registro', async () => {
+      const { client } = cenario({
+        saidas: [linhaSaida({ id: 'jul', data: '2026-07-05', recorrente: true, serie_id: 'serie-1' })],
       })
-    })
 
-    it('a ocorrência projetada começa PENDENTE e sem pagoEm, mesmo com a origem paga', async () => {
-      const origem = linhaSaida({ id: 'origem', data: '2026-07-05', recorrente: true, status: 'PAGO', pago_em: '2026-07-05' })
-      const { client } = cenario({ candidatas: [origem] })
-
-      const [projetada] = await new SupabaseSaidaRepository(client).listarComProjecao(USER_ID, AGOSTO)
-
-      expect(projetada).toMatchObject({ id: 'origem_2026-08', status: 'PENDENTE', pagoEm: null })
+      await expect(new SupabaseSaidaRepository(client).listarDoPeriodo(USER_ID, AGOSTO)).resolves.toEqual([])
     })
 
     it('a saída real do mês mantém a própria situação de pagamento', async () => {
       const { client } = cenario({ saidas: [linhaSaida({ status: 'PAGO', pago_em: '2026-08-05' })] })
 
-      const [saida] = await new SupabaseSaidaRepository(client).listarComProjecao(USER_ID, AGOSTO)
+      const [saida] = await new SupabaseSaidaRepository(client).listarDoPeriodo(USER_ID, AGOSTO)
 
       expect(saida).toMatchObject({ status: 'PAGO', pagoEm: '2026-08-05' })
     })
@@ -142,7 +124,7 @@ describe('SupabaseSaidaRepository', () => {
         ],
       })
 
-      const saidas = await new SupabaseSaidaRepository(client).listarComProjecao(USER_ID, AGOSTO)
+      const saidas = await new SupabaseSaidaRepository(client).listarDoPeriodo(USER_ID, AGOSTO)
 
       expect(saidas.map((saida) => saida.id)).toEqual(['sai_fat_fat-2', 'sai_fat_fat-1', 'sai-1'])
       expect(saidas[1]).toEqual({
@@ -162,20 +144,16 @@ describe('SupabaseSaidaRepository', () => {
         criadoEm: '',
         atualizadoEm: '',
         automatica: true,
+        serieId: null,
+        editadoManualmente: false,
       })
       expect(saidas[0]).toMatchObject({ status: 'PAGO', pagoEm: '2026-08-18', automatica: true })
     })
 
     it('propaga o erro da consulta do período', async () => {
-      const { client } = criarSupabaseFake({ saidas: [falha(ERRO), ok([])] })
+      const { client } = criarSupabaseFake({ saidas: [falha(ERRO)] })
 
-      await expect(new SupabaseSaidaRepository(client).listarComProjecao(USER_ID, AGOSTO)).rejects.toBe(ERRO)
-    })
-
-    it('propaga o erro da consulta de candidatas a recorrência', async () => {
-      const { client } = criarSupabaseFake({ saidas: [ok([]), falha(ERRO)] })
-
-      await expect(new SupabaseSaidaRepository(client).listarComProjecao(USER_ID, AGOSTO)).rejects.toBe(ERRO)
+      await expect(new SupabaseSaidaRepository(client).listarDoPeriodo(USER_ID, AGOSTO)).rejects.toBe(ERRO)
     })
   })
 
@@ -320,6 +298,14 @@ describe('SupabaseSaidaRepository', () => {
       ])
     })
 
+    it('grava o serie_id informado no controle da série', async () => {
+      const fake = criarSupabaseFake({ saidas: [ok(linhaSaida())] })
+
+      await new SupabaseSaidaRepository(fake.client).criar(USER_ID, payload({ recorrente: true }), { serieId: 'serie-1' })
+
+      expect(argumentos(fake.consultas[0]!, 'insert')![0]).toMatchObject({ serie_id: 'serie-1', user_id: USER_ID })
+    })
+
     it('grava vencimento, pagoEm e observação informados', async () => {
       const fake = criarSupabaseFake({ saidas: [ok(linhaSaida())] })
 
@@ -353,6 +339,17 @@ describe('SupabaseSaidaRepository', () => {
       expect(argumentos(consulta, 'update')![0]).toMatchObject({ valor: 1200, forma_pagamento: 'PIX' })
       expect(consulta.chamadas).toContainEqual(['eq', 'id', ID])
       expect(consulta.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    })
+
+    it('grava editado_manualmente só quando informado no controle', async () => {
+      const fake = criarSupabaseFake({ saidas: [ok(linhaSaida()), ok(linhaSaida())] })
+      const repositorio = new SupabaseSaidaRepository(fake.client)
+
+      await repositorio.atualizar(USER_ID, ID, payload(), { editadoManualmente: true })
+      await repositorio.atualizar(USER_ID, ID, payload())
+
+      expect(argumentos(fake.consultas[0]!, 'update')![0]).toMatchObject({ editado_manualmente: true })
+      expect(argumentos(fake.consultas[1]!, 'update')![0]).not.toHaveProperty('editado_manualmente')
     })
 
     it('lança NotFoundError quando nenhuma linha é atualizada', async () => {
