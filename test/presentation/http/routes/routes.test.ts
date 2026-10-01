@@ -27,6 +27,7 @@ const m = vi.hoisted(() => {
   return {
     obterUsuarioPorToken: vi.fn(),
     supabaseClientForRequest: vi.fn(() => ({ cliente: 'supabase-da-requisicao' })),
+    primeiraDataComDados: vi.fn(),
     auth: controller('auth', ['registrar', 'login', 'refresh', 'me', 'atualizarPerfil']),
     categorias: controller('categorias', ['listar']),
     entradas: controller('entradas', ['listar', 'resumo', 'criar', 'atualizar', 'remover']),
@@ -43,6 +44,7 @@ const m = vi.hoisted(() => {
       'removerTransacao',
     ]),
     dashboard: controller('dashboard', ['resumo']),
+    navegacao: controller('navegacao', ['limites']),
   }
 })
 
@@ -59,8 +61,18 @@ vi.mock('../../../../src/presentation/http/controllers/entradasController', () =
 vi.mock('../../../../src/presentation/http/controllers/saidasController', () => ({ saidasController: m.saidas }))
 vi.mock('../../../../src/presentation/http/controllers/cartoesController', () => ({ cartoesController: m.cartoes }))
 vi.mock('../../../../src/presentation/http/controllers/dashboardController', () => ({ dashboardController: m.dashboard }))
+vi.mock('../../../../src/presentation/http/controllers/navegacaoController', () => ({ navegacaoController: m.navegacao }))
+// O limite de competência roda de verdade (middleware + use-cases); só a consulta ao banco é trocada.
+vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseNavegacaoRepository', () => ({
+  SupabaseNavegacaoRepository: vi.fn(function () {
+    return { primeiraDataComDados: m.primeiraDataComDados }
+  }),
+}))
 
 const UUID = '123e4567-e89b-12d3-a456-426614174000'
+/** Primeiro registro do usuário nos testes: limites de navegação de 2026-01 até o mês atual + 1. */
+const PRIMEIRA_DATA = '2026-01-15'
+const FORA_DO_LIMITE = 'Competência fora do intervalo permitido'
 const UUID_2 = '223e4567-e89b-12d3-a456-426614174000'
 const USUARIO = { id: 'user-1', email: 'ana@exemplo.com', nome: 'Ana' }
 
@@ -144,6 +156,8 @@ const ROTAS_PROTEGIDAS: Rota[] = [
   { metodo: 'DELETE', caminho: `/api/cartoes/${UUID}`, acao: 'cartoes.remover' },
   { metodo: 'PATCH', caminho: `/api/faturas/${UUID}/pagar`, acao: 'cartoes.pagarFatura' },
   { metodo: 'GET', caminho: '/api/dashboard/resumo?competencia=2026-08', acao: 'dashboard.resumo' },
+  { metodo: 'GET', caminho: '/api/dashboard/resumo?competencia=2026-01', acao: 'dashboard.resumo' },
+  { metodo: 'GET', caminho: '/api/navegacao/limites', acao: 'navegacao.limites' },
 ]
 
 /** Entrada inválida por rota validada, com a mensagem que o schema devolve (quando é uma mensagem própria). */
@@ -193,9 +207,18 @@ const ENTRADAS_INVALIDAS: (Omit<Rota, 'acao'> & { mensagem?: string })[] = [
   { metodo: 'DELETE', caminho: '/api/cartoes/abc', mensagem: 'Identificador inválido.' },
   { metodo: 'PATCH', caminho: '/api/faturas/abc/pagar', mensagem: 'Identificador inválido.' },
   { metodo: 'GET', caminho: '/api/dashboard/resumo?competencia=agosto', mensagem: 'Competência inválida, use o formato YYYY-MM.' },
+  // Fora dos limites de navegação (antes do primeiro mês com dados ou depois do mês atual + 1).
+  { metodo: 'GET', caminho: '/api/saidas?mes=12&ano=2025', mensagem: FORA_DO_LIMITE },
+  { metodo: 'GET', caminho: '/api/saidas?mes=1&ano=2099', mensagem: FORA_DO_LIMITE },
+  { metodo: 'GET', caminho: '/api/saidas/resumo?competencia=2025-12', mensagem: FORA_DO_LIMITE },
+  { metodo: 'GET', caminho: '/api/entradas?mes=12&ano=2025', mensagem: FORA_DO_LIMITE },
+  { metodo: 'GET', caminho: '/api/entradas/resumo?competencia=2099-01', mensagem: FORA_DO_LIMITE },
+  { metodo: 'GET', caminho: '/api/cartoes/faturas?competencia=2025-12', mensagem: FORA_DO_LIMITE },
+  { metodo: 'GET', caminho: '/api/dashboard/resumo?competencia=2099-01', mensagem: FORA_DO_LIMITE },
 ]
 
-const todasAsAcoes = () => [m.auth, m.categorias, m.entradas, m.saidas, m.cartoes, m.dashboard].flatMap(Object.values)
+const todasAsAcoes = () =>
+  [m.auth, m.categorias, m.entradas, m.saidas, m.cartoes, m.dashboard, m.navegacao].flatMap(Object.values)
 
 let servidor: Server
 let baseUrl: string
@@ -233,6 +256,7 @@ describe('rotas HTTP', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     m.obterUsuarioPorToken.mockResolvedValue(USUARIO)
+    m.primeiraDataComDados.mockResolvedValue(PRIMEIRA_DATA)
   })
 
   it('GET /api/health responde sem autenticação', async () => {
@@ -293,7 +317,8 @@ describe('rotas HTTP', () => {
 
       expect(status).toBe(422)
       expect(typeof corpo.message).toBe('string')
-      if (mensagem) expect(corpo.message).toBe(mensagem)
+      if (mensagem === FORA_DO_LIMITE) expect(corpo.message).toMatch(/^Competência fora do intervalo permitido \(2026-01 a \d{4}-\d{2}\)\.$/)
+      else if (mensagem) expect(corpo.message).toBe(mensagem)
       for (const acao of todasAsAcoes()) expect(acao).not.toHaveBeenCalled()
     })
 
@@ -354,6 +379,53 @@ describe('rotas HTTP', () => {
 
       expect(corpo.body).toEqual({ nome: 'Invasor' })
       expect(m.obterUsuarioPorToken).toHaveBeenCalledWith('token-valido')
+    })
+  })
+
+  describe('limites de navegação entre meses', () => {
+    const competenciaRelativa = (meses: number) => {
+      const [ano, mes] = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' })
+        .format(new Date())
+        .split('-')
+        .map(Number) as [number, number]
+      const data = new Date(Date.UTC(ano, mes - 1 + meses, 1))
+      return `${data.getUTCFullYear()}-${String(data.getUTCMonth() + 1).padStart(2, '0')}`
+    }
+
+    it('aceita o mês atual + 1 e rejeita o + 2', async () => {
+      const permitido = await requisitar('GET', `/api/saidas/resumo?competencia=${competenciaRelativa(1)}`)
+      const proibido = await requisitar('GET', `/api/saidas/resumo?competencia=${competenciaRelativa(2)}`)
+
+      expect(permitido.status).toBe(200)
+      expect(proibido.status).toBe(422)
+    })
+
+    it('usuário sem dados: só o mês atual e o seguinte', async () => {
+      m.primeiraDataComDados.mockResolvedValue(null)
+
+      const atual = await requisitar('GET', `/api/dashboard/resumo?competencia=${competenciaRelativa(0)}`)
+      const anterior = await requisitar('GET', `/api/dashboard/resumo?competencia=${competenciaRelativa(-1)}`)
+
+      expect(atual.status).toBe(200)
+      expect(anterior.status).toBe(422)
+    })
+
+    it('consulta os limites com o client da requisição, depois de autenticar', async () => {
+      await requisitar('GET', '/api/entradas?mes=8&ano=2026')
+
+      expect(m.primeiraDataComDados).toHaveBeenCalledWith(USUARIO.id)
+    })
+
+    it('valida o formato antes do limite: query inválida não consulta o banco', async () => {
+      await requisitar('GET', '/api/dashboard/resumo?competencia=agosto')
+
+      expect(m.primeiraDataComDados).not.toHaveBeenCalled()
+    })
+
+    it('rotas sem competência não consultam os limites', async () => {
+      await requisitar('POST', '/api/saidas', { body: SAIDA })
+
+      expect(m.primeiraDataComDados).not.toHaveBeenCalled()
     })
   })
 

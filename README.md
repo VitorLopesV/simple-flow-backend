@@ -94,6 +94,15 @@ expor ao frontend.
 | DELETE | `/cartoes/:cartaoId/transacoes/:id` | Remove o débito                                            |
 | PATCH  | `/faturas/:id/pagar`   | Marca fatura como paga                                                   |
 | GET    | `/dashboard/resumo`    | Consolidado do período + série de 6 meses (query: `competencia`)         |
+| GET    | `/navegacao/limites`   | `{ primeiroMes, ultimoMes }` (`YYYY-MM`) que o usuário pode consultar      |
+
+### Limites de navegação
+
+`primeiroMes` é o mês do registro mais antigo do usuário (entradas, saídas ou transações de
+cartão) — sem dados, o mês atual; `ultimoMes` é o mês atual + 1, calculado a cada requisição no
+fuso de São Paulo. As rotas que recebem competência/período (`GET /entradas`, `GET /saidas`, os
+dois `/resumo`, `GET /cartoes/faturas` e `GET /dashboard/resumo`) respondem **422** fora desse
+intervalo.
 
 ### Categorias e tipos
 

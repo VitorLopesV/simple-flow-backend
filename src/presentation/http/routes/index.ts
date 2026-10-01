@@ -6,6 +6,7 @@ import { categoriasRoutes } from './categorias.routes'
 import { dashboardRoutes } from './dashboard.routes'
 import { entradasRoutes } from './entradas.routes'
 import { faturasRoutes } from './faturas.routes'
+import { navegacaoRoutes } from './navegacao.routes'
 import { saidasRoutes } from './saidas.routes'
 
 export const routes = Router()
@@ -18,3 +19,4 @@ routes.use('/saidas', saidasRoutes)
 routes.use('/cartoes', cartoesRoutes)
 routes.use('/faturas', faturasRoutes)
 routes.use('/dashboard', dashboardRoutes)
+routes.use('/navegacao', navegacaoRoutes)

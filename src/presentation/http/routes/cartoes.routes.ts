@@ -3,6 +3,7 @@ import { Router } from 'express'
 import { asyncHandler } from '../../../shared/utils/asyncHandler'
 import { cartoesController } from '../controllers/cartoesController'
 import { authMiddleware } from '../middlewares/authMiddleware'
+import { daCompetencia, limiteDeCompetencia } from '../middlewares/limiteDeCompetencia'
 import { validate } from '../middlewares/validate'
 import {
   cartaoIdParamSchema,
@@ -19,7 +20,12 @@ cartoesRoutes.use(authMiddleware)
 
 // Segue o caminho real usado por frontend/src/services/cartaoService.ts (GET /cartoes/faturas
 // com query competencia/cartaoId), não o /cartoes/:id/faturas documentado originalmente no README.
-cartoesRoutes.get('/faturas', validate(faturaFiltroQuerySchema, 'query'), asyncHandler(cartoesController.listarComFaturas))
+cartoesRoutes.get(
+  '/faturas',
+  validate(faturaFiltroQuerySchema, 'query'),
+  limiteDeCompetencia(daCompetencia),
+  asyncHandler(cartoesController.listarComFaturas),
+)
 // Débitos do cartão: mesmo formato de uma saída, mas presos ao cartão — só por aqui
 // eles podem ser criados, editados ou removidos (na aba Saídas a fatura é só leitura).
 cartoesRoutes.post(

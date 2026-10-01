@@ -44,3 +44,11 @@ const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 's
 export function labelCurtoPeriodo(periodo: Periodo): string {
   return `${MESES_CURTOS[periodo.mes - 1]}/${String(periodo.ano).slice(-2)}`
 }
+
+/**
+ * Competência (`YYYY-MM`) do instante informado no fuso de São Paulo — o servidor
+ * roda em UTC, e entre 21h e meia-noite do último dia do mês o UTC já é o mês seguinte.
+ */
+export function competenciaAtual(agora: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(agora)
+}

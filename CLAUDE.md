@@ -33,7 +33,7 @@ Não há container de DI — a composição é manual dentro de cada controller 
 4. **Implementação Supabase** em `src/infrastructure/supabase/repositories/SupabaseXRepository.ts` — mapeamento manual row (snake_case) ↔ entidade (camelCase) via funções `paraX`/`paraLinha` locais no topo do arquivo.
 5. **Schema Zod** em `src/presentation/http/schemas/x.schema.ts`.
 6. **Controller** em `src/presentation/http/controllers/xController.ts` — objeto literal com métodos async (`listar`, `criar`, `atualizar`, `remover`), cada um instanciando o repositório (`new SupabaseXRepository(req.supabase!)`) e a use-case.
-7. **Rotas** em `src/presentation/http/routes/x.routes.ts` — `router.use(authMiddleware)` no topo (a menos que a rota seja pública), `validate(schema, alvo)` por rota, handler envolto em `asyncHandler(...)`.
+7. **Rotas** em `src/presentation/http/routes/x.routes.ts` — `router.use(authMiddleware)` no topo (a menos que a rota seja pública), `validate(schema, alvo)` por rota, handler envolto em `asyncHandler(...)`. Rota que consulta uma competência/período passa também por `limiteDeCompetencia(daCompetencia | doMesEAno)` depois do `validate` (422 fora de `GET /navegacao/limites`: do primeiro mês com dados até o mês atual + 1, no fuso de São Paulo).
 8. Registrar o router em `src/presentation/http/routes/index.ts`.
 
 ## Multi-tenancy — a regra mais importante do projeto

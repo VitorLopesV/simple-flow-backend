@@ -3,6 +3,7 @@ import { Router } from 'express'
 import { asyncHandler } from '../../../shared/utils/asyncHandler'
 import { saidasController } from '../controllers/saidasController'
 import { authMiddleware } from '../middlewares/authMiddleware'
+import { daCompetencia, doMesEAno, limiteDeCompetencia } from '../middlewares/limiteDeCompetencia'
 import { validate } from '../middlewares/validate'
 import { confirmacaoQuerySchema, idParamSchema, resumoQuerySchema } from '../schemas/common.schema'
 import { listarSaidasQuerySchema, saidaPayloadSchema } from '../schemas/saida.schema'
@@ -11,8 +12,18 @@ export const saidasRoutes = Router()
 
 saidasRoutes.use(authMiddleware)
 
-saidasRoutes.get('/resumo', validate(resumoQuerySchema, 'query'), asyncHandler(saidasController.resumo))
-saidasRoutes.get('/', validate(listarSaidasQuerySchema, 'query'), asyncHandler(saidasController.listar))
+saidasRoutes.get(
+  '/resumo',
+  validate(resumoQuerySchema, 'query'),
+  limiteDeCompetencia(daCompetencia),
+  asyncHandler(saidasController.resumo),
+)
+saidasRoutes.get(
+  '/',
+  validate(listarSaidasQuerySchema, 'query'),
+  limiteDeCompetencia(doMesEAno),
+  asyncHandler(saidasController.listar),
+)
 saidasRoutes.post('/', validate(saidaPayloadSchema), asyncHandler(saidasController.criar))
 saidasRoutes.put(
   '/:id',
