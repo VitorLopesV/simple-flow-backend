@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-const tipoEntradaSchema = z.enum(['SALARIO', 'FREELANCE', 'RENDIMENTOS', 'REEMBOLSO'], {
-  errorMap: () => ({ message: 'Tipo de entrada inválido, use Salário, Freelance, Rendimentos ou Reembolso.' }),
+const tipoEntradaSchema = z.enum(['SALARIO', 'FREELANCE', 'RENDIMENTOS', 'REEMBOLSO', 'OUTROS'], {
+  errorMap: () => ({ message: 'Tipo de entrada inválido, use Salário, Freelance, Rendimentos, Reembolso ou Outros.' }),
 })
 
 export const entradaPayloadSchema = z.object({

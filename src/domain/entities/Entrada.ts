@@ -2,7 +2,7 @@ import type { ID } from '../../shared/types/common'
 import type { ControleDeSerie } from './Recorrencia'
 
 /** Detalhe da entrada, independente da categoria (que é o grupo: Renda Fixa, Renda Variável, Investimentos, Outros). */
-export type EntradaTipo = 'SALARIO' | 'FREELANCE' | 'RENDIMENTOS' | 'REEMBOLSO'
+export type EntradaTipo = 'SALARIO' | 'FREELANCE' | 'RENDIMENTOS' | 'REEMBOLSO' | 'OUTROS'
 
 export interface Entrada extends ControleDeSerie {
   id: ID

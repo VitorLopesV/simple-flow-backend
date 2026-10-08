@@ -145,6 +145,21 @@ describe('SupabaseEntradaRepository', () => {
       expect(pagina.items.map((entrada) => entrada.id)).toEqual(['e2'])
     })
 
+    it('filtra pelo tipo OUTROS', async () => {
+      const { client } = criarSupabaseFake({
+        entradas: porPeriodo([...linhas, linhaEntrada({ id: 'e4', descricao: 'Prêmio', data: '2026-08-20', categoria_id: 'cat-extra', tipo: 'OUTROS' })]),
+      })
+
+      const pagina = await new SupabaseEntradaRepository(client).listar(USER_ID, {
+        periodo: AGOSTO,
+        tipo: 'OUTROS',
+        page: 1,
+        pageSize: 20,
+      })
+
+      expect(pagina.items).toEqual([expect.objectContaining({ id: 'e4', tipo: 'OUTROS' })])
+    })
+
     it('busca sem diferenciar maiúsculas na descrição e na observação', async () => {
       const { client } = criarSupabaseFake({ entradas: porPeriodo(linhas) })
       const repositorio = new SupabaseEntradaRepository(client)

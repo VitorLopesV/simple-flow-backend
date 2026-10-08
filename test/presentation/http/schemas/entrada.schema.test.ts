@@ -78,15 +78,15 @@ describe('entradaPayloadSchema', () => {
     expect(resultado).not.toHaveProperty('status')
   })
 
-  it('aceita os 4 tipos de entrada', () => {
-    for (const tipo of ['SALARIO', 'FREELANCE', 'RENDIMENTOS', 'REEMBOLSO']) {
+  it('aceita os 5 tipos de entrada', () => {
+    for (const tipo of ['SALARIO', 'FREELANCE', 'RENDIMENTOS', 'REEMBOLSO', 'OUTROS']) {
       expect(entradaPayloadSchema.safeParse(payloadValido({ tipo })).success).toBe(true)
     }
   })
 
   it('rejeita tipo ausente ou inexistente com mensagem em português', () => {
     const { tipo: _tipo, ...semTipo } = payloadValido()
-    const mensagem = 'Tipo de entrada inválido, use Salário, Freelance, Rendimentos ou Reembolso.'
+    const mensagem = 'Tipo de entrada inválido, use Salário, Freelance, Rendimentos, Reembolso ou Outros.'
 
     expect(primeiraMensagem(entradaPayloadSchema.safeParse(semTipo))).toBe(mensagem)
     expect(primeiraMensagem(entradaPayloadSchema.safeParse(payloadValido({ tipo: 'CONTA' })))).toBe(mensagem)
@@ -118,6 +118,7 @@ describe('listarEntradasQuerySchema', () => {
 
   it('aceita tipo válido ou omitido e rejeita inexistente', () => {
     expect(listarEntradasQuerySchema.parse(queryValida({ tipo: 'SALARIO' }))).toMatchObject({ tipo: 'SALARIO' })
+    expect(listarEntradasQuerySchema.parse(queryValida({ tipo: 'OUTROS' }))).toMatchObject({ tipo: 'OUTROS' })
     expect(listarEntradasQuerySchema.safeParse(queryValida({ tipo: 'CONTA' })).success).toBe(false)
   })
 

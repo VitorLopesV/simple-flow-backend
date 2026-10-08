@@ -76,7 +76,7 @@ expor ao frontend.
 | GET    | `/categorias`          | Lista categorias do sistema + custom do usuário                         |
 | GET    | `/entradas`            | Lista paginada (query: `mes`, `ano`, `categoriaId`, `tipo`, `busca`, `page`, `pageSize`) |
 | GET    | `/entradas/resumo`     | Totalizadores do período (query: `competencia` = `YYYY-MM`)              |
-| POST   | `/entradas`            | Cria entrada (`categoriaId` = grupo, `tipo` = `SALARIO`/`FREELANCE`/`RENDIMENTOS`/`REEMBOLSO`) |
+| POST   | `/entradas`            | Cria entrada (`categoriaId` = grupo, `tipo` = `SALARIO`/`FREELANCE`/`RENDIMENTOS`/`REEMBOLSO`/`OUTROS`) |
 | PUT    | `/entradas/:id`        | Atualiza entrada                                                         |
 | DELETE | `/entradas/:id`        | Remove entrada                                                           |
 | GET    | `/saidas`              | Lista paginada (mesmos filtros + `status`)                               |
@@ -110,7 +110,7 @@ Entradas e saídas seguem o mesmo modelo: a **categoria** é o grupo e o **tipo*
 
 - Saídas: Despesa Fixa, Despesa Variável, Investimento + `SaidaTipo`.
 - Entradas: Renda Fixa, Renda Variável, Investimentos, Outros + `EntradaTipo` (`SALARIO`,
-  `FREELANCE`, `RENDIMENTOS`, `REEMBOLSO`). A migration `categorias_e_tipos_de_entrada` migrou as
+  `FREELANCE`, `RENDIMENTOS`, `REEMBOLSO`, `OUTROS`). A migration `categorias_e_tipos_de_entrada` migrou as
   entradas antigas: Salário → Renda Fixa, Freelance → Renda Variável, Rendimentos → Investimentos,
   Reembolso → Outros (Benefício → Renda Fixa/Salário).
 
