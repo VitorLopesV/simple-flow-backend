@@ -148,6 +148,10 @@ describe('transacaoCartaoPayloadSchema', () => {
     expect(transacaoCartaoPayloadSchema.safeParse(transacaoValida({ tipo: 'FARMACIA' })).success).toBe(true)
   })
 
+  it('aceita ASSINATURA como tipo da transação', () => {
+    expect(transacaoCartaoPayloadSchema.safeParse(transacaoValida({ tipo: 'ASSINATURA' })).success).toBe(true)
+  })
+
   it('rejeita tipo fora do enum da transação', () => {
     expect(transacaoCartaoPayloadSchema.safeParse(transacaoValida({ tipo: 'VIAGEM' })).success).toBe(false)
   })

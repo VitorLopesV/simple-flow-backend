@@ -13,6 +13,7 @@ export type SaidaTipo =
   | 'POUPANCA'
   | 'ACOES'
   | 'FARMACIA'
+  | 'ASSINATURA'
   | 'OUTROS'
 
 export interface Saida extends ControleDeSerie {

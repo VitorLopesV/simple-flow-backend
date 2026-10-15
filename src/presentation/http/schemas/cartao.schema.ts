@@ -33,6 +33,7 @@ export const transacaoCartaoPayloadSchema = z.object({
     'POUPANCA',
     'ACOES',
     'FARMACIA',
+    'ASSINATURA',
     'EDUCACAO',
     'COMPRAS',
     'OUTROS',

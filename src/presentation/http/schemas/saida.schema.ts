@@ -13,6 +13,7 @@ export const saidaPayloadSchema = z.object({
     'POUPANCA',
     'ACOES',
     'FARMACIA',
+    'ASSINATURA',
     'EDUCACAO',
     'COMPRAS',
     'OUTROS',
