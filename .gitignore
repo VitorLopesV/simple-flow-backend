@@ -1,0 +1,7 @@
+
+# IDE / ferramentas locais
+.idea/
+.serena/
+
+# Workspaces npm: o lockfile fica só na raiz do monorepo
+package-lock.json
