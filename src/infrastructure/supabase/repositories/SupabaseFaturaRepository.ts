@@ -204,6 +204,25 @@ export class SupabaseFaturaRepository implements FaturaRepository {
     }))
   }
 
+  /**
+   * Transações pela data da compra, não pelo vencimento da fatura — é o que "Últimas
+   * transações" do dashboard mostra (a fatura em si já aparece como saída).
+   */
+  async listarTransacoesDoPeriodo(userId: ID, periodo: Periodo): Promise<TransacaoCartao[]> {
+    const { inicio, fim } = limitesDoMes(periodo)
+
+    const { data, error } = await this.supabase
+      .from('transacoes_cartao')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('data', inicio)
+      .lte('data', fim)
+      .order('data', { ascending: false })
+    if (error) throw error
+
+    return data.map(paraTransacao)
+  }
+
   async pagar(userId: ID, faturaId: ID): Promise<void> {
     const { data, error } = await this.supabase
       .from('faturas')

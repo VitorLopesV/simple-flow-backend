@@ -37,6 +37,8 @@ export interface FaturaRepository {
   listarComFaturas(userId: ID, filtro: FaturaFiltro): Promise<CartaoComFatura[]>
   /** Faturas que vencem no período — cada uma vira uma saída derivada na aba Saídas. */
   listarVencendoNoPeriodo(userId: ID, periodo: Periodo): Promise<FaturaComoSaida[]>
+  /** Transações cuja data da compra cai no período, independente da fatura/vencimento (da mais recente para a mais antiga). */
+  listarTransacoesDoPeriodo(userId: ID, periodo: Periodo): Promise<TransacaoCartao[]>
   pagar(userId: ID, faturaId: ID): Promise<void>
   buscarTransacaoPorId(userId: ID, id: ID): Promise<TransacaoCartao | null>
   /** Faz upsert da fatura da competência (criando-a como ABERTA se não existir) e insere a transação. */

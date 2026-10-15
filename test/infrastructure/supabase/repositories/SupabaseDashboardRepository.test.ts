@@ -52,6 +52,8 @@ function cenario({
     cartoes: () => ok([{ id: 'cartao-1', nome: 'Nubank' }]),
     transacoes_cartao: (consulta) => {
       const [, faturaIds] = argumentos(consulta, 'in') ?? []
+      // Sem `in` é a consulta por data da compra (transações recentes); com `in`, a do detalhe das faturas.
+      if (!faturaIds) return ok(noIntervalo(consulta, transacoes, 'data'))
       return ok(transacoes.filter((transacao) => (faturaIds as string[]).includes(transacao.fatura_id)))
     },
     categorias: (consulta) => (usou(consulta, 'maybeSingle') ? ok({ id: 'cat-var' }) : categorias),
@@ -382,6 +384,73 @@ describe('SupabaseDashboardRepository', () => {
       expect(resumo.transacoesRecentes).toHaveLength(8)
       expect(resumo.transacoesRecentes[0]!.id).toBe('s10')
       expect(resumo.transacoesRecentes.at(-1)!.id).toBe('s3')
+    })
+  })
+
+  describe('transacoesRecentes com compras no cartão', () => {
+    it('inclui as compras do mês como SAIDA, pela data da compra, com nome e cor da categoria', async () => {
+      const { client } = cenario({
+        saidas: [linhaSaida({ id: 's1', data: '2026-08-05', valor: 100 })],
+        transacoes: [
+          linhaTransacao({ id: 't1', descricao: 'Mercado', valor: 80, data: '2026-08-20', categoria_id: 'cat-var' }),
+        ],
+      })
+
+      const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
+
+      expect(resumo.transacoesRecentes).toEqual([
+        {
+          id: 't1',
+          tipo: 'SAIDA',
+          descricao: 'Mercado',
+          valor: 80,
+          data: '2026-08-20',
+          categoriaNome: 'Despesa Variável',
+          categoriaCor: '#f97316',
+        },
+        expect.objectContaining({ id: 's1', tipo: 'SAIDA' }),
+      ])
+    })
+
+    it('mantém a fatura como saída e não conta as compras nos totais', async () => {
+      const { client } = cenario({
+        faturas: [linhaFatura({ id: 'fat-1', vencimento: '2026-08-10', total: 80 })],
+        transacoes: [linhaTransacao({ id: 't1', valor: 80, data: '2026-07-20' })],
+      })
+
+      const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
+
+      expect(resumo.totalSaidas).toBe(80)
+      expect(resumo.totalFaturas).toBe(80)
+      expect(resumo.transacoesRecentes.map((t) => t.id)).toEqual(['sai_fat_fat-1'])
+    })
+
+    it('ignora compras de outros meses', async () => {
+      const { client } = cenario({
+        transacoes: [
+          linhaTransacao({ id: 't-jul', data: '2026-07-31' }),
+          linhaTransacao({ id: 't-ago', data: '2026-08-01' }),
+          linhaTransacao({ id: 't-set', data: '2026-09-01' }),
+        ],
+      })
+
+      const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
+
+      expect(resumo.transacoesRecentes.map((t) => t.id)).toEqual(['t-ago'])
+    })
+
+    it('ordena entradas, saídas e compras juntas por data e limita a 8', async () => {
+      const { client } = cenario({
+        entradas: [linhaEntrada({ id: 'e1', data: '2026-08-12' })],
+        saidas: [linhaSaida({ id: 's1', data: '2026-08-08' }), linhaSaida({ id: 's2', data: '2026-08-02' })],
+        transacoes: Array.from({ length: 7 }, (_, i) =>
+          linhaTransacao({ id: `t${i + 1}`, data: `2026-08-${String(2 * i + 11).padStart(2, '0')}` }),
+        ),
+      })
+
+      const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
+
+      expect(resumo.transacoesRecentes.map((t) => t.id)).toEqual(['t7', 't6', 't5', 't4', 't3', 't2', 'e1', 't1'])
     })
   })
 

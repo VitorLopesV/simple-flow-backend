@@ -216,6 +216,33 @@ describe('SupabaseFaturaRepository', () => {
     })
   })
 
+  describe('listarTransacoesDoPeriodo', () => {
+    it('busca pela data da compra, do usuário, da mais recente para a mais antiga', async () => {
+      const fake = criarSupabaseFake({
+        transacoes_cartao: () => ok([linhaTransacao({ id: 'tr-1', valor: '30.5' as unknown as number })]),
+      })
+
+      const resultado = await new SupabaseFaturaRepository(fake.client).listarTransacoesDoPeriodo(USER_ID, AGOSTO)
+
+      expect(resultado).toHaveLength(1)
+      expect(resultado[0]).toMatchObject({ id: 'tr-1', valor: 30.5 })
+      expect(fake.consultasDe('transacoes_cartao')[0]!.chamadas).toEqual([
+        ['select', '*'],
+        ['eq', 'user_id', USER_ID],
+        ['gte', 'data', '2026-08-01'],
+        ['lte', 'data', '2026-08-31'],
+        ['order', 'data', { ascending: false }],
+      ])
+    })
+
+    it('propaga o erro da consulta', async () => {
+      const erro = { message: 'falha no banco' }
+      const fake = criarSupabaseFake({ transacoes_cartao: () => falha(erro) })
+
+      await expect(new SupabaseFaturaRepository(fake.client).listarTransacoesDoPeriodo(USER_ID, AGOSTO)).rejects.toBe(erro)
+    })
+  })
+
   describe('listarVencendoNoPeriodo', () => {
     function cenario({
       faturas = ok([linhaFatura()]) as RespostaSupabase,
