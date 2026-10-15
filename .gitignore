@@ -5,3 +5,13 @@
 
 # Workspaces npm: o lockfile fica só na raiz do monorepo
 package-lock.json
+
+# Dependências e artefatos gerados
+node_modules/
+dist/
+coverage/
+
+# Variáveis de ambiente (contêm a service role key)
+.env
+.env.*
+!.env.example
