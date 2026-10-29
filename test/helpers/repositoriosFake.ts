@@ -60,6 +60,7 @@ export function criarFaturaRepositoryFake() {
   return {
     listarComFaturas: vi.fn(),
     listarVencendoNoPeriodo: vi.fn(),
+    listarTransacoesDoPeriodo: vi.fn(),
     pagar: vi.fn(),
     buscarTransacaoPorId: vi.fn(),
     criarTransacao: vi.fn(),

@@ -51,12 +51,14 @@ export class SupabaseDashboardRepository implements DashboardRepository {
     //
     // As faturas do mês são buscadas de novo à parte: nas saídas cada uma já chega
     // somada numa saída só, sem as transações que o detalhe de cartões precisa.
-    const [entradasPorPeriodo, saidasPorPeriodo, faturasDoMes, categoriasRes] = await Promise.all([
-      Promise.all(periodos.map((p) => this.entradaRepository.listarDoPeriodo(userId, p))),
-      Promise.all(periodos.map((p) => this.saidaRepository.listarDoPeriodo(userId, p))),
-      this.faturaRepository.listarVencendoNoPeriodo(userId, periodo),
-      this.supabase.from('categorias').select('id, nome, cor'),
-    ])
+    const [entradasPorPeriodo, saidasPorPeriodo, faturasDoMes, transacoesCartaoDoPeriodo, categoriasRes] =
+      await Promise.all([
+        Promise.all(periodos.map((p) => this.entradaRepository.listarDoPeriodo(userId, p))),
+        Promise.all(periodos.map((p) => this.saidaRepository.listarDoPeriodo(userId, p))),
+        this.faturaRepository.listarVencendoNoPeriodo(userId, periodo),
+        this.faturaRepository.listarTransacoesDoPeriodo(userId, periodo),
+        this.supabase.from('categorias').select('id, nome, cor'),
+      ])
 
     if (categoriasRes.error) throw categoriasRes.error
 
@@ -129,6 +131,16 @@ export class SupabaseDashboardRepository implements DashboardRepository {
         valor: saida.valor,
         data: saida.data,
         ...nomeECor(saida.categoriaId),
+      })),
+      // Lançamentos de cartão entram pela data da compra: a saída da fatura só mostra o
+      // total, e aqui o usuário vê cada compra no cartão (mesma regra do mock do frontend).
+      ...transacoesCartaoDoPeriodo.map<TransacaoRecente>((transacao) => ({
+        id: transacao.id,
+        tipo: 'SAIDA',
+        descricao: transacao.descricao,
+        valor: transacao.valor,
+        data: transacao.data,
+        ...nomeECor(transacao.categoriaId),
       })),
     ]
       .sort((a, b) => b.data.localeCompare(a.data))

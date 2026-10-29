@@ -35,6 +35,7 @@ export const transacaoCartaoPayloadSchema = z.object({
     'FARMACIA',
     'EDUCACAO',
     'COMPRAS',
+    'ASSINATURA',
     'OUTROS',
   ]),
   parcelaAtual: z.number().int().min(1).default(1),

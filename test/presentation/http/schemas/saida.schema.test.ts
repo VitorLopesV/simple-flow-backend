@@ -86,8 +86,8 @@ describe('saidaPayloadSchema', () => {
     )
   })
 
-  it('aceita cada tipo do enum, incluindo EDUCACAO, COMPRAS e FARMACIA', () => {
-    const tipos = ['TRANSPORTE', 'ALIMENTACAO', 'LAZER', 'CONTA', 'POUPANCA', 'ACOES', 'FARMACIA', 'EDUCACAO', 'COMPRAS', 'OUTROS']
+  it('aceita cada tipo do enum, incluindo EDUCACAO, COMPRAS, FARMACIA e ASSINATURA', () => {
+    const tipos = ['TRANSPORTE', 'ALIMENTACAO', 'LAZER', 'CONTA', 'POUPANCA', 'ACOES', 'FARMACIA', 'EDUCACAO', 'COMPRAS', 'ASSINATURA', 'OUTROS']
 
     for (const tipo of tipos) {
       expect(saidaPayloadSchema.safeParse(payloadValido({ tipo })).success).toBe(true)

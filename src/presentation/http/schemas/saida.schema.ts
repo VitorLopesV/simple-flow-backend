@@ -15,6 +15,7 @@ export const saidaPayloadSchema = z.object({
     'FARMACIA',
     'EDUCACAO',
     'COMPRAS',
+    'ASSINATURA',
     'OUTROS',
   ]),
   status: z.enum(['PAGO', 'PENDENTE']),

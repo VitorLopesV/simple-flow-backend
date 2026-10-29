@@ -204,6 +204,20 @@ export class SupabaseFaturaRepository implements FaturaRepository {
     }))
   }
 
+  async listarTransacoesDoPeriodo(userId: ID, periodo: Periodo): Promise<TransacaoCartao[]> {
+    const { inicio, fim } = limitesDoMes(periodo)
+
+    const { data, error } = await this.supabase
+      .from('transacoes_cartao')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('data', inicio)
+      .lte('data', fim)
+    if (error) throw error
+
+    return data.map(paraTransacao)
+  }
+
   async pagar(userId: ID, faturaId: ID): Promise<void> {
     const { data, error } = await this.supabase
       .from('faturas')

@@ -51,6 +51,8 @@ function cenario({
     faturas: (consulta) => ok(noIntervalo(consulta, faturas, 'vencimento')),
     cartoes: () => ok([{ id: 'cartao-1', nome: 'Nubank' }]),
     transacoes_cartao: (consulta) => {
+      // Duas leituras da mesma tabela: lançamentos por data da compra (intervalo) e por fatura (`in`).
+      if (usou(consulta, 'gte')) return ok(noIntervalo(consulta, transacoes, 'data'))
       const [, faturaIds] = argumentos(consulta, 'in') ?? []
       return ok(transacoes.filter((transacao) => (faturaIds as string[]).includes(transacao.fatura_id)))
     },
@@ -367,6 +369,28 @@ describe('SupabaseDashboardRepository', () => {
           data: '2026-08-01',
           categoriaNome: 'Sem categoria',
           categoriaCor: '#94a3b8',
+        },
+      ])
+    })
+
+    it('inclui os lançamentos do cartão pela data da compra, mesmo com a fatura vencendo em outro mês', async () => {
+      const { client } = cenario({
+        transacoes: [
+          linhaTransacao({ id: 'tc1', fatura_id: 'fat-setembro', data: '2026-08-12', descricao: 'Netflix', valor: 40, categoria_id: 'cat-fixa' }),
+        ],
+      })
+
+      const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
+
+      expect(resumo.transacoesRecentes).toEqual([
+        {
+          id: 'tc1',
+          tipo: 'SAIDA',
+          descricao: 'Netflix',
+          valor: 40,
+          data: '2026-08-12',
+          categoriaNome: 'Despesa Fixa',
+          categoriaCor: '#ef4444',
         },
       ])
     })
