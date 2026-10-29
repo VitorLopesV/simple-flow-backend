@@ -45,10 +45,11 @@ const m = vi.hoisted(() => {
     ]),
     dashboard: controller('dashboard', ['resumo']),
     navegacao: controller('navegacao', ['limites']),
+    keepalive: controller('keepalive', ['verificar']),
   }
 })
 
-vi.mock('../../../../src/infrastructure/config/env', () => ({ env: { corsOrigins: ['http://localhost:5173'] } }))
+vi.mock('../../../../src/infrastructure/config/env', () => ({ env: { corsOrigins: ['http://localhost:5173'], cronSecret: 'segredo-do-cron' } }))
 vi.mock('../../../../src/infrastructure/auth/SupabaseAuthService', () => ({
   SupabaseAuthService: { obterUsuarioPorToken: m.obterUsuarioPorToken },
 }))
@@ -62,6 +63,7 @@ vi.mock('../../../../src/presentation/http/controllers/saidasController', () => 
 vi.mock('../../../../src/presentation/http/controllers/cartoesController', () => ({ cartoesController: m.cartoes }))
 vi.mock('../../../../src/presentation/http/controllers/dashboardController', () => ({ dashboardController: m.dashboard }))
 vi.mock('../../../../src/presentation/http/controllers/navegacaoController', () => ({ navegacaoController: m.navegacao }))
+vi.mock('../../../../src/presentation/http/controllers/keepaliveController', () => ({ keepaliveController: m.keepalive }))
 // O limite de competência roda de verdade (middleware + use-cases); só a consulta ao banco é trocada.
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseNavegacaoRepository', () => ({
   SupabaseNavegacaoRepository: vi.fn(function () {
@@ -218,7 +220,7 @@ const ENTRADAS_INVALIDAS: (Omit<Rota, 'acao'> & { mensagem?: string })[] = [
 ]
 
 const todasAsAcoes = () =>
-  [m.auth, m.categorias, m.entradas, m.saidas, m.cartoes, m.dashboard, m.navegacao].flatMap(Object.values)
+  [m.auth, m.categorias, m.entradas, m.saidas, m.cartoes, m.dashboard, m.navegacao, m.keepalive].flatMap(Object.values)
 
 let servidor: Server
 let baseUrl: string
@@ -264,6 +266,24 @@ describe('rotas HTTP', () => {
 
     expect(status).toBe(200)
     expect(corpo).toEqual({ status: 'ok' })
+  })
+
+  describe('GET /api/keepalive (Vercel Cron)', () => {
+    it('alcança o controller com o Bearer da CRON_SECRET, sem passar pela autenticação de usuário', async () => {
+      const resposta = await fetch(`${baseUrl}/api/keepalive`, { headers: { Authorization: 'Bearer segredo-do-cron' } })
+
+      expect(resposta.status).toBe(200)
+      expect(((await resposta.json()) as { acao: string }).acao).toBe('keepalive.verificar')
+      expect(m.obterUsuarioPorToken).not.toHaveBeenCalled()
+    })
+
+    it.each([[undefined], ['Bearer errado'], ['Bearer token-valido']])('responde 401 com Authorization %s e não chama o controller', async (authorization) => {
+      const resposta = await fetch(`${baseUrl}/api/keepalive`, { headers: authorization ? { Authorization: authorization } : {} })
+
+      expect(resposta.status).toBe(401)
+      expect(await resposta.json()).toEqual({ message: 'Chamada não autorizada.' })
+      expect(m.keepalive.verificar).not.toHaveBeenCalled()
+    })
   })
 
   describe('rotas públicas', () => {

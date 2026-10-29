@@ -164,3 +164,22 @@ entidades de `src/domain/entities`.
 Projeto Vercel separado, com root directory `backend/`. `vercel.json` reescreve `/api/*` para
 a function serverless em `api/index.ts`. Guia passo a passo (criação dos dois projetos, env
 vars de cada um e ajuste de CORS) em [`../DEPLOY.md`](../DEPLOY.md).
+
+### Cron: keepalive do Supabase
+
+O plano Free do Supabase **pausa o projeto após ~7 dias sem atividade**. Para evitar isso, o
+`vercel.json` agenda um Vercel Cron diário (`0 12 * * *`, 12h UTC = 9h em São Paulo) que chama
+`GET /api/keepalive`. A rota faz um `select id limit 1` em `categorias` com o client anônimo (o
+RLS só expõe as categorias do sistema, nenhum dado de usuário).
+
+- **Autenticação:** não usa o JWT de usuário. O `cronMiddleware` exige
+  `Authorization: Bearer <CRON_SECRET>`, que a Vercel envia sozinha quando a variável existe no
+  projeto. Sem `CRON_SECRET` configurada a rota responde 401 para qualquer chamada.
+- **Configuração:** crie `CRON_SECRET` (valor longo e aleatório) nas env vars do projeto backend
+  na Vercel e **redeploye** — a variável não reinicia a function sozinha. Localmente ela é
+  opcional (`.env.example`).
+- **Conferir:** aba *Cron Jobs* do projeto na Vercel (botão *Run* dispara uma execução). Manualmente:
+  `curl -H "Authorization: Bearer $CRON_SECRET" https://<backend>/api/keepalive` → `{ "status": "ok" }`.
+- **Se o projeto pausar mesmo assim:** restaure pelo painel do Supabase; a execução falha (500)
+  enquanto o banco estiver pausado e aparece nos logs da Vercel.
+- O plano Hobby da Vercel permite cron no máximo diário; não aumente a frequência sem trocar de plano.

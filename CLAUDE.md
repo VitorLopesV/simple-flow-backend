@@ -149,3 +149,4 @@ Vercel, projeto separado do frontend (root directory `backend/`), function em `a
 - Após mudar `CORS_ORIGINS`, é preciso **redeployar manualmente** — a env var não reinicia a function sozinha.
 - Preview deployments do frontend não passam no CORS por padrão (comparação exata de origem, sem regex de subdomínio).
 - Build na Vercel não roda `tsc` explicitamente — erros de type-check não bloqueiam o deploy automaticamente; rode `npm run type-check` manualmente antes de subir.
+- **Keepalive do Supabase (Free pausa após ~7 dias sem atividade)**: Vercel Cron diário (`vercel.json`, `0 12 * * *`) chama `GET /api/keepalive` (`keepaliveController`, `select` leve em `categorias` com `supabaseAnonClient()`). Protegida por `cronMiddleware` (`Authorization: Bearer <CRON_SECRET>`, falha fechada sem a env var), não por `authMiddleware`. `CRON_SECRET` precisa existir na Vercel + redeploy. Hobby só permite cron diário. Detalhes no README.

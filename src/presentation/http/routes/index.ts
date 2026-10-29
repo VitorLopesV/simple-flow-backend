@@ -6,12 +6,14 @@ import { categoriasRoutes } from './categorias.routes'
 import { dashboardRoutes } from './dashboard.routes'
 import { entradasRoutes } from './entradas.routes'
 import { faturasRoutes } from './faturas.routes'
+import { keepaliveRoutes } from './keepalive.routes'
 import { navegacaoRoutes } from './navegacao.routes'
 import { saidasRoutes } from './saidas.routes'
 
 export const routes = Router()
 
 routes.get('/health', (_req, res) => res.json({ status: 'ok' }))
+routes.use('/keepalive', keepaliveRoutes)
 routes.use('/auth', authRoutes)
 routes.use('/categorias', categoriasRoutes)
 routes.use('/entradas', entradasRoutes)
