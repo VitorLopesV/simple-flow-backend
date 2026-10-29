@@ -86,7 +86,7 @@ Carregadas via flag nativa do Node `--env-file=.env` (sem `dotenv`), validadas e
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` — obrigatórias. **Nunca commitar, logar ou expor ao frontend a service role key.**
 - `PORT` — opcional, default `3000`.
 - `NODE_ENV` — opcional, default `development`.
-- `CORS_ORIGINS` — opcional, lista separada por vírgula sem espaços, default `http://localhost:5173` (o frontend real roda na porta `5180` — confira `CORS_ORIGINS` no `.env` local antes de debugar CORS).
+- `CORS_ORIGINS` — opcional, lista separada por vírgula sem espaços, default `http://localhost:5180` (a porta do dev server do frontend).
 
 ## Banco de dados / migrations
 

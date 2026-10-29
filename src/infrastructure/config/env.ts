@@ -16,7 +16,7 @@ export const env = {
   supabaseServiceRoleKey: obrigatoria('SUPABASE_SERVICE_ROLE_KEY'),
   /** Opcional: sem ela o `GET /api/keepalive` rejeita toda chamada (a Vercel a envia como Bearer no cron). */
   cronSecret: process.env.CRON_SECRET,
-  corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:5173')
+  corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:5180')
     .split(',')
     .map((origem) => origem.trim())
     .filter(Boolean),
