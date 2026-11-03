@@ -17,6 +17,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      atividades: {
+        Row: {
+          acao: string
+          categoria_id: string | null
+          criado_em: string
+          data: string
+          descricao: string
+          id: string
+          registro_id: string
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          acao: string
+          categoria_id?: string | null
+          criado_em?: string
+          data: string
+          descricao: string
+          id?: string
+          registro_id: string
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Update: {
+          acao?: string
+          categoria_id?: string | null
+          criado_em?: string
+          data?: string
+          descricao?: string
+          id?: string
+          registro_id?: string
+          tipo?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: []
+      }
       cartoes: {
         Row: {
           ativo: boolean

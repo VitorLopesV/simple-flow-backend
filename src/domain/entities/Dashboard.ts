@@ -1,9 +1,16 @@
 import type { ID, SeriePonto } from '../../shared/types/common'
 import type { SaidaTipo } from './Saida'
 
+/** O que aconteceu com o registro, conforme o histórico de atividades. */
+export type AcaoAtividade = 'ADICIONADO' | 'ALTERADO' | 'REMOVIDO'
+
 export interface TransacaoRecente {
   id: ID
-  tipo: 'ENTRADA' | 'SAIDA'
+  /** `CARTAO`: fatura de cartão ou compra lançada no cartão. */
+  tipo: 'ENTRADA' | 'SAIDA' | 'CARTAO'
+  acao: AcaoAtividade
+  /** Instante (ISO) da ação — a lista vem ordenada por ele, da mais recente para a mais antiga. */
+  ocorridoEm: string
   descricao: string
   valor: number
   data: string

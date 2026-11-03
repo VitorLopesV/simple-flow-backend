@@ -6,6 +6,7 @@ export type CartaoRow = Tabelas['cartoes']['Row']
 export type CategoriaRow = Tabelas['categorias']['Row']
 export type EntradaRow = Tabelas['entradas']['Row']
 export type FaturaRow = Tabelas['faturas']['Row']
+export type AtividadeRow = Tabelas['atividades']['Row']
 export type SaidaRow = Tabelas['saidas']['Row']
 export type TransacaoRow = Tabelas['transacoes_cartao']['Row']
 
@@ -110,6 +111,22 @@ export function linhaTransacao(sobrescritas: Partial<TransacaoRow> = {}): Transa
     user_id: USER_ID,
     criado_em: '2026-08-15T12:00:00.000Z',
     atualizado_em: '2026-08-15T12:00:00.000Z',
+    ...sobrescritas,
+  }
+}
+
+export function linhaAtividade(sobrescritas: Partial<AtividadeRow> = {}): AtividadeRow {
+  return {
+    id: 'atv-1',
+    user_id: USER_ID,
+    tipo: 'SAIDA',
+    acao: 'ADICIONADO',
+    registro_id: 'reg-1',
+    descricao: 'Aluguel',
+    valor: 100,
+    data: '2026-08-05',
+    categoria_id: 'cat-fixa',
+    criado_em: '2026-08-05T12:00:00.000Z',
     ...sobrescritas,
   }
 }

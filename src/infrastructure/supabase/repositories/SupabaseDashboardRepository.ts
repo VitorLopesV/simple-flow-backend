@@ -1,11 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { Entrada } from '../../../domain/entities/Entrada'
-import type { DashboardResumo, TransacaoRecente } from '../../../domain/entities/Dashboard'
+import type { AcaoAtividade, DashboardResumo, TransacaoRecente } from '../../../domain/entities/Dashboard'
 import type { Saida, SaidaTipo } from '../../../domain/entities/Saida'
 import type { DashboardRepository } from '../../../domain/repositories/DashboardRepository'
 import type { ID, Periodo, SeriePonto } from '../../../shared/types/common'
-import { labelCurtoPeriodo, ultimosPeriodos } from '../../../shared/utils/periodo'
+import { labelCurtoPeriodo, limitesDoMes, ultimosPeriodos } from '../../../shared/utils/periodo'
 import { calcularVariacao } from '../../../shared/utils/variacao'
 import type { Database } from '../database.types'
 import { SupabaseEntradaRepository } from './SupabaseEntradaRepository'
@@ -13,6 +13,9 @@ import { SupabaseFaturaRepository } from './SupabaseFaturaRepository'
 import { SupabaseSaidaRepository } from './SupabaseSaidaRepository'
 
 const MESES_NO_GRAFICO = 6
+const TRANSACOES_RECENTES = 8
+
+type AtividadeRow = Database['public']['Tables']['atividades']['Row']
 
 function somar(registros: { valor: number }[]): number {
   return registros.reduce((soma, item) => soma + item.valor, 0)
@@ -41,6 +44,48 @@ export class SupabaseDashboardRepository implements DashboardRepository {
     this.entradaRepository = new SupabaseEntradaRepository(supabase)
     this.saidaRepository = new SupabaseSaidaRepository(supabase)
     this.faturaRepository = new SupabaseFaturaRepository(supabase)
+  }
+
+  /**
+   * Histórico (tabela atividades, preenchida por trigger) para o card de transações
+   * recentes: a última ação de cada registro que ainda existe e os registros removidos
+   * cuja data cai no mês — estes só existem aqui, como cópia.
+   */
+  private async buscarAtividades(
+    userId: ID,
+    periodo: Periodo,
+    registroIds: ID[],
+  ): Promise<[Map<ID, AtividadeRow>, AtividadeRow[]]> {
+    const { inicio, fim } = limitesDoMes(periodo)
+
+    const [doRegistro, removidos] = await Promise.all([
+      registroIds.length
+        ? this.supabase
+            .from('atividades')
+            .select('*')
+            .eq('user_id', userId)
+            .in('registro_id', registroIds)
+            .order('criado_em', { ascending: true })
+        : Promise.resolve({ data: [] as AtividadeRow[], error: null }),
+      this.supabase
+        .from('atividades')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('acao', 'REMOVIDO')
+        .gte('data', inicio)
+        .lte('data', fim)
+        .order('criado_em', { ascending: false })
+        .limit(TRANSACOES_RECENTES),
+    ])
+
+    if (doRegistro.error) throw doRegistro.error
+    if (removidos.error) throw removidos.error
+
+    // Em ordem cronológica, a última ação de cada registro sobrescreve as anteriores.
+    const ultimaPorRegistro = new Map<ID, AtividadeRow>()
+    for (const atividade of doRegistro.data) ultimaPorRegistro.set(atividade.registro_id, atividade)
+
+    return [ultimaPorRegistro, removidos.data]
   }
 
   async resumo(userId: ID, periodo: Periodo): Promise<DashboardResumo> {
@@ -100,6 +145,13 @@ export class SupabaseDashboardRepository implements DashboardRepository {
     const gastosPorCategoria = porCategoria(saidasDoMes)
     const entradasPorCategoria = porCategoria(entradasDoMes)
 
+    const [ultimaAcaoPorRegistro, removidos] = await this.buscarAtividades(userId, periodo, [
+      ...entradasDoMes.map((entrada) => entrada.id),
+      // A fatura é uma saída derivada (id sai_fat_*): não existe no histórico.
+      ...saidasDoMes.filter((saida) => !saida.automatica).map((saida) => saida.id),
+      ...transacoesCartaoDoPeriodo.map((transacao) => transacao.id),
+    ])
+
     const transacoesCartaoDoMes = faturasDoMes.flatMap((fatura) => fatura.transacoes)
     const agrupadoPorTipo = new Map<SaidaTipo, number>()
     for (const transacao of transacoesCartaoDoMes) {
@@ -115,18 +167,30 @@ export class SupabaseDashboardRepository implements DashboardRepository {
       return { categoriaNome: categoria?.nome ?? 'Sem categoria', categoriaCor: categoria?.cor ?? '#94a3b8' }
     }
 
+    /**
+     * Última ação de cada registro; sem histórico (dado anterior ao histórico ou gerado
+     * pelo job de recorrência) vale "adicionado" na data de criação.
+     */
+    const acaoDe = (id: string, criadoEm: string): Pick<TransacaoRecente, 'acao' | 'ocorridoEm'> => {
+      const ultima = ultimaAcaoPorRegistro.get(id)
+      return { acao: (ultima?.acao as AcaoAtividade | undefined) ?? 'ADICIONADO', ocorridoEm: ultima?.criado_em ?? criadoEm }
+    }
+
     const transacoesRecentes: TransacaoRecente[] = [
       ...entradasDoMes.map<TransacaoRecente>((entrada) => ({
         id: entrada.id,
         tipo: 'ENTRADA',
+        ...acaoDe(entrada.id, entrada.criadoEm),
         descricao: entrada.descricao,
         valor: entrada.valor,
         data: entrada.data,
         ...nomeECor(entrada.categoriaId),
       })),
+      // A fatura entra como movimentação de cartão; as demais saídas, como saída.
       ...saidasDoMes.map<TransacaoRecente>((saida) => ({
         id: saida.id,
-        tipo: 'SAIDA',
+        tipo: saida.automatica && saida.formaPagamento === 'CARTAO_CREDITO' ? 'CARTAO' : 'SAIDA',
+        ...acaoDe(saida.id, saida.criadoEm),
         descricao: saida.descricao,
         valor: saida.valor,
         data: saida.data,
@@ -136,15 +200,27 @@ export class SupabaseDashboardRepository implements DashboardRepository {
       // total, e aqui o usuário vê cada compra no cartão (mesma regra do mock do frontend).
       ...transacoesCartaoDoPeriodo.map<TransacaoRecente>((transacao) => ({
         id: transacao.id,
-        tipo: 'SAIDA',
+        tipo: 'CARTAO',
+        ...acaoDe(transacao.id, transacao.criadoEm),
         descricao: transacao.descricao,
         valor: transacao.valor,
         data: transacao.data,
         ...nomeECor(transacao.categoriaId),
       })),
+      // Removidos: o registro não existe mais, só a cópia guardada no histórico.
+      ...removidos.map<TransacaoRecente>((atividade) => ({
+        id: atividade.registro_id,
+        tipo: atividade.tipo as TransacaoRecente['tipo'],
+        acao: 'REMOVIDO',
+        ocorridoEm: atividade.criado_em,
+        descricao: atividade.descricao,
+        valor: Number(atividade.valor),
+        data: atividade.data,
+        ...nomeECor(atividade.categoria_id ?? ''),
+      })),
     ]
-      .sort((a, b) => b.data.localeCompare(a.data))
-      .slice(0, 8)
+      .sort((a, b) => b.ocorridoEm.localeCompare(a.ocorridoEm) || b.data.localeCompare(a.data))
+      .slice(0, TRANSACOES_RECENTES)
 
     return {
       totalEntradas,

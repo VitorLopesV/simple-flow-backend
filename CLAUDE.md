@@ -115,6 +115,12 @@ O mês seguinte dos meses seguintes é criado pelo job `gerar-recorrencias-mes-s
 
 Encerramento (`Remover*` e desligar a recorrência em `Atualizar*`): remove o mês (só no `Remover*`) e os seguintes (`listarSeguintesDaSerie`), nunca os anteriores, e marca a série com `serie_encerrada = true` para o job não recriá-la a partir de um mês anterior; religar desmarca. Se algum mês seguinte tem `editado_manualmente`, lança `SerieAlteradaError` (409 com `mesesAfetados` — único erro com campo extra além de `message`, via `DomainError.detalhes`) até vir `?confirmar=true` (`confirmacaoQuerySchema`). A confirmação é checada **antes** de qualquer escrita.
 
+## Regra de negócio não óbvia: situação "Vencido" e histórico de atividades
+
+"Vencido" não é um status gravado: é uma saída `PENDENTE` com `vencimento` anterior a hoje (`estaVencida`, `shared/utils/situacao.ts`; "hoje" no fuso de São Paulo, `dataAtual`). `GET /saidas?status=` aceita `PAGO`, `PENDENTE` e `VENCIDO`, e são grupos disjuntos: `PENDENTE` exclui as vencidas.
+
+O card "Últimas transações" (`transacoesRecentes` do dashboard) lê a tabela `atividades`, preenchida só por trigger (`registrar_atividade`) em `entradas`, `saidas` e `transacoes_cartao` — não pelos use-cases, para cobrir remoções em série e a exclusão de cartão em cascata. O trigger ignora operações sem `auth.uid()` (job de recorrência) e alterações só de colunas de controle. Faturas (`sai_fat_*`) e compras no cartão saem com `tipo: 'CARTAO'`; registro sem histórico vale `ADICIONADO` na data de criação.
+
 ## Testes
 
 Vitest, em `test/` espelhando a estrutura de `src/` (`test/application/use-cases/x/CriarX.test.ts` testa `src/application/use-cases/x/CriarX.ts`). Nomes de `describe`/`it` em português. Cobertura atual: 100% das linhas em use-cases, repositórios, controllers, rotas, middlewares, schemas e utils — **todo código novo deve vir com testes**, mantendo esse patamar (mínimo 80% por camada).

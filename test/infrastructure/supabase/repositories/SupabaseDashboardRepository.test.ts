@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest'
 import { SupabaseDashboardRepository } from '../../../../src/infrastructure/supabase/repositories/SupabaseDashboardRepository'
 import {
   USER_ID,
+  linhaAtividade,
   linhaEntrada,
   linhaFatura,
   linhaSaida,
   linhaTransacao,
+  type AtividadeRow,
   type EntradaRow,
   type FaturaRow,
   type SaidaRow,
@@ -43,9 +45,24 @@ function cenario({
   saidas = [] as SaidaRow[],
   faturas = [] as FaturaRow[],
   transacoes = [] as TransacaoRow[],
+  atividades = [] as AtividadeRow[],
   categorias = ok(CATEGORIAS),
 } = {}) {
   return criarSupabaseFake({
+    atividades: (consulta) => {
+      // Duas leituras: a última ação dos registros do mês (`in`) e os removidos do mês (intervalo de data).
+      if (usou(consulta, 'in')) {
+        const [, ids] = argumentos(consulta, 'in') ?? []
+        return ok(atividades.filter((atividade) => (ids as string[]).includes(atividade.registro_id)))
+      }
+      return ok(
+        noIntervalo(
+          consulta,
+          atividades.filter((atividade) => atividade.acao === 'REMOVIDO'),
+          'data',
+        ),
+      )
+    },
     entradas: (consulta) => ok(noIntervalo(consulta, entradas, 'data')),
     saidas: (consulta) => ok(noIntervalo(consulta, saidas, 'data')),
     faturas: (consulta) => ok(noIntervalo(consulta, faturas, 'vencimento')),
@@ -346,6 +363,8 @@ describe('SupabaseDashboardRepository', () => {
         {
           id: 's1',
           tipo: 'SAIDA',
+          acao: 'ADICIONADO',
+          ocorridoEm: '2026-08-01T00:00:00.000Z',
           descricao: 'Aluguel',
           valor: 100,
           data: '2026-08-10',
@@ -355,6 +374,8 @@ describe('SupabaseDashboardRepository', () => {
         {
           id: 'e1',
           tipo: 'ENTRADA',
+          acao: 'ADICIONADO',
+          ocorridoEm: '2026-08-01T00:00:00.000Z',
           descricao: 'Salário',
           valor: 5000,
           data: '2026-08-03',
@@ -364,6 +385,8 @@ describe('SupabaseDashboardRepository', () => {
         {
           id: 's2',
           tipo: 'SAIDA',
+          acao: 'ADICIONADO',
+          ocorridoEm: '2026-08-01T00:00:00.000Z',
           descricao: 'Padaria',
           valor: 20,
           data: '2026-08-01',
@@ -385,12 +408,81 @@ describe('SupabaseDashboardRepository', () => {
       expect(resumo.transacoesRecentes).toEqual([
         {
           id: 'tc1',
-          tipo: 'SAIDA',
+          tipo: 'CARTAO',
+          acao: 'ADICIONADO',
+          ocorridoEm: '2026-08-15T12:00:00.000Z',
           descricao: 'Netflix',
           valor: 40,
           data: '2026-08-12',
           categoriaNome: 'Despesa Fixa',
           categoriaCor: '#ef4444',
+        },
+      ])
+    })
+
+    it('traz a fatura do mês como movimentação de cartão', async () => {
+      const { client } = cenario({ faturas: [linhaFatura({ vencimento: '2026-08-20', total: 300 })] })
+
+      const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
+
+      expect(resumo.transacoesRecentes).toHaveLength(1)
+      expect(resumo.transacoesRecentes[0]).toMatchObject({ tipo: 'CARTAO', acao: 'ADICIONADO', valor: 300 })
+    })
+
+    it('mostra a última ação do histórico e ordena pelo instante dela, não pela data do registro', async () => {
+      const { client } = cenario({
+        entradas: [linhaEntrada({ id: 'e1', data: '2026-08-20' })],
+        saidas: [linhaSaida({ id: 's1', data: '2026-08-01', descricao: 'Novo nome', valor: 99 })],
+        atividades: [
+          linhaAtividade({ registro_id: 's1', acao: 'ADICIONADO', criado_em: '2026-08-01T10:00:00.000Z' }),
+          linhaAtividade({ registro_id: 's1', acao: 'ALTERADO', criado_em: '2026-08-25T10:00:00.000Z' }),
+        ],
+      })
+
+      const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
+
+      expect(resumo.transacoesRecentes.map((t) => [t.id, t.acao])).toEqual([
+        ['s1', 'ALTERADO'],
+        ['e1', 'ADICIONADO'],
+      ])
+      expect(resumo.transacoesRecentes[0]).toMatchObject({
+        descricao: 'Novo nome',
+        valor: 99,
+        ocorridoEm: '2026-08-25T10:00:00.000Z',
+      })
+    })
+
+    it('inclui os registros removidos do mês, com os dados guardados no histórico', async () => {
+      const { client } = cenario({
+        atividades: [
+          linhaAtividade({
+            registro_id: 'removida',
+            tipo: 'SAIDA',
+            acao: 'REMOVIDO',
+            descricao: 'Conta apagada',
+            valor: 80,
+            data: '2026-08-09',
+            categoria_id: 'cat-var',
+            criado_em: '2026-08-12T09:00:00.000Z',
+          }),
+          linhaAtividade({ registro_id: 'removida', tipo: 'SAIDA', acao: 'ADICIONADO', data: '2026-08-09' }),
+          linhaAtividade({ registro_id: 'de-julho', acao: 'REMOVIDO', data: '2026-07-09' }),
+        ],
+      })
+
+      const resumo = await new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)
+
+      expect(resumo.transacoesRecentes).toEqual([
+        {
+          id: 'removida',
+          tipo: 'SAIDA',
+          acao: 'REMOVIDO',
+          ocorridoEm: '2026-08-12T09:00:00.000Z',
+          descricao: 'Conta apagada',
+          valor: 80,
+          data: '2026-08-09',
+          categoriaNome: 'Despesa Variável',
+          categoriaCor: '#f97316',
         },
       ])
     })
@@ -424,9 +516,20 @@ describe('SupabaseDashboardRepository', () => {
     // Uma query por mês da janela de 6 meses — sem as antigas consultas de candidatas a recorrência.
     expect(fake.consultasDe('entradas')).toHaveLength(6)
     expect(fake.consultasDe('saidas')).toHaveLength(6)
-    for (const consulta of consultasComDono) {
+    for (const consulta of [...consultasComDono, ...fake.consultasDe('atividades')]) {
       expect(consulta.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
     }
+  })
+
+  it('propaga o erro da leitura do histórico de atividades', async () => {
+    const erro = { message: 'falha no banco' }
+    const { client } = criarSupabaseFake({
+      entradas: [ok([linhaEntrada()]), ok([]), ok([]), ok([]), ok([]), ok([])],
+      categorias: () => ok(CATEGORIAS),
+      atividades: () => falha(erro),
+    })
+
+    await expect(new SupabaseDashboardRepository(client).resumo(USER_ID, AGOSTO)).rejects.toBe(erro)
   })
 
   it('propaga o erro da consulta de categorias', async () => {
