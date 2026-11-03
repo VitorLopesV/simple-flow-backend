@@ -2,6 +2,8 @@ import type { ID } from '../../shared/types/common'
 import type { ControleDeSerie } from './Recorrencia'
 
 export type SaidaStatus = 'PAGO' | 'PENDENTE'
+/** Situação filtrável na listagem: além das gravadas, a derivada `VENCIDO` (pendente com vencimento passado). */
+export type SaidaFiltroStatus = SaidaStatus | 'VENCIDO'
 export type FormaPagamento = 'DINHEIRO' | 'PIX' | 'DEBITO' | 'BOLETO' | 'CARTAO_CREDITO'
 
 /** Classificação específica da despesa, independente da categoria (fixa/variável/investimento). */

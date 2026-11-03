@@ -37,7 +37,7 @@ export const listarSaidasQuerySchema = z.object({
   mes: z.coerce.number().int().min(1).max(12),
   ano: z.coerce.number().int().min(2000),
   categoriaId: z.string().uuid().optional(),
-  status: z.enum(['PAGO', 'PENDENTE']).optional(),
+  status: z.enum(['PAGO', 'PENDENTE', 'VENCIDO']).optional(),
   busca: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),

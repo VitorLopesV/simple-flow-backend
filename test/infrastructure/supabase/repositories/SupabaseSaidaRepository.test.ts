@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { SaidaPayload } from '../../../../src/domain/entities/Saida'
 import { NotFoundError } from '../../../../src/domain/errors/DomainError'
@@ -173,6 +173,44 @@ describe('SupabaseSaidaRepository', () => {
 
       expect(porCategoria.items.map((saida) => saida.id)).toEqual(['s2'])
       expect(pendentes.items.map((saida) => saida.id)).toEqual(['s3', 's2'])
+    })
+
+    describe('situação com vencimento', () => {
+      const comVencimento = [
+        linhaSaida({ id: 'vencida', data: '2026-08-05', status: 'PENDENTE', vencimento: '2026-08-10' }),
+        linhaSaida({ id: 'no-prazo', data: '2026-08-06', status: 'PENDENTE', vencimento: '2026-08-25' }),
+        linhaSaida({ id: 'sem-venc', data: '2026-08-07', status: 'PENDENTE', vencimento: null }),
+        linhaSaida({ id: 'paga', data: '2026-08-08', status: 'PAGO', vencimento: '2026-08-01', pago_em: '2026-08-02' }),
+      ]
+
+      beforeEach(() => {
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date('2026-08-15T15:00:00.000Z'))
+      })
+      afterEach(() => vi.useRealTimers())
+
+      async function idsPor(status: 'PENDENTE' | 'PAGO' | 'VENCIDO') {
+        const { client } = cenario({ saidas: comVencimento })
+        const pagina = await new SupabaseSaidaRepository(client).listar(USER_ID, {
+          periodo: AGOSTO,
+          status,
+          page: 1,
+          pageSize: 20,
+        })
+        return pagina.items.map((saida) => saida.id)
+      }
+
+      it('PENDENTE traz só as pendentes dentro do prazo', async () => {
+        expect(await idsPor('PENDENTE')).toEqual(['sem-venc', 'no-prazo'])
+      })
+
+      it('VENCIDO traz só as pendentes com vencimento anterior a hoje', async () => {
+        expect(await idsPor('VENCIDO')).toEqual(['vencida'])
+      })
+
+      it('PAGO não traz vencidas', async () => {
+        expect(await idsPor('PAGO')).toEqual(['paga'])
+      })
     })
 
     it('busca na descrição e na observação sem diferenciar maiúsculas', async () => {

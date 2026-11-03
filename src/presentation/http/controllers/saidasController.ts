@@ -7,7 +7,7 @@ import { RemoverSaida } from '../../../application/use-cases/saidas/RemoverSaida
 import { ResumoSaidas } from '../../../application/use-cases/saidas/ResumoSaidas'
 import { SupabaseCategoriaRepository } from '../../../infrastructure/supabase/repositories/SupabaseCategoriaRepository'
 import { SupabaseSaidaRepository } from '../../../infrastructure/supabase/repositories/SupabaseSaidaRepository'
-import type { SaidaStatus } from '../../../domain/entities/Saida'
+import type { SaidaFiltroStatus } from '../../../domain/entities/Saida'
 import { paraPeriodo } from '../../../shared/utils/periodo'
 
 function repositorio(req: Request) {
@@ -29,7 +29,7 @@ export const saidasController = {
       mes: number
       ano: number
       categoriaId?: string
-      status?: SaidaStatus
+      status?: SaidaFiltroStatus
       busca?: string
       page: number
       pageSize: number

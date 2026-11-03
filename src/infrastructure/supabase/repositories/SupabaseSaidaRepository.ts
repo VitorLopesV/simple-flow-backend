@@ -8,8 +8,9 @@ import type { SaidaFiltro, SaidaRepository } from '../../../domain/repositories/
 import type { ID, Paginated, Periodo } from '../../../shared/types/common'
 import { agruparPorTipo } from '../../../shared/utils/agrupamento'
 import { faixaDaPagina, montarPaginado } from '../../../shared/utils/paginacao'
-import { limitesDoMes, mesAnterior } from '../../../shared/utils/periodo'
+import { dataAtual, limitesDoMes, mesAnterior } from '../../../shared/utils/periodo'
 import { inicioDoMesSeguinte } from '../../../shared/utils/recorrencia'
+import { correspondeASituacao } from '../../../shared/utils/situacao'
 import type { Database } from '../database.types'
 import { paraLinhaDeControle } from './controleDeSerie'
 import { SupabaseFaturaRepository } from './SupabaseFaturaRepository'
@@ -121,10 +122,11 @@ export class SupabaseSaidaRepository implements SaidaRepository {
   async listar(userId: ID, filtro: SaidaFiltro): Promise<Paginated<Saida>> {
     const todas = await this.listarDoPeriodo(userId, filtro.periodo)
     const busca = filtro.busca?.toLocaleLowerCase()
+    const hoje = dataAtual(new Date())
 
     const filtradas = todas
       .filter((saida) => !filtro.categoriaId || saida.categoriaId === filtro.categoriaId)
-      .filter((saida) => !filtro.status || saida.status === filtro.status)
+      .filter((saida) => !filtro.status || correspondeASituacao(saida, filtro.status, hoje))
       .filter(
         (saida) =>
           !busca ||

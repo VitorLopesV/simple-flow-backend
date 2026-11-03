@@ -52,3 +52,13 @@ export function labelCurtoPeriodo(periodo: Periodo): string {
 export function competenciaAtual(agora: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(agora)
 }
+
+/** Data de hoje (`YYYY-MM-DD`) no fuso de São Paulo — mesma razão de `competenciaAtual`. */
+export function dataAtual(agora: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(agora)
+}

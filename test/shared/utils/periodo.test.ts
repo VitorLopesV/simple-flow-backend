@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   addMeses,
   competenciaAtual,
+  dataAtual,
   dentroDoPeriodo,
   labelCurtoPeriodo,
   limitesDoMes,
@@ -140,5 +141,14 @@ describe('competenciaAtual', () => {
     // 30/09 às 21h30 em São Paulo — em UTC já é 01/10.
     expect(competenciaAtual(new Date('2026-10-01T00:30:00.000Z'))).toBe('2026-09')
     expect(competenciaAtual(new Date('2026-10-01T03:00:00.000Z'))).toBe('2026-10')
+  })
+})
+
+describe('dataAtual', () => {
+  it('usa o fuso de São Paulo', () => {
+    expect(dataAtual(new Date('2026-09-15T15:00:00.000Z'))).toBe('2026-09-15')
+    // 30/09 às 21h30 em São Paulo — em UTC já é 01/10.
+    expect(dataAtual(new Date('2026-10-01T00:30:00.000Z'))).toBe('2026-09-30')
+    expect(dataAtual(new Date('2026-10-01T03:00:00.000Z'))).toBe('2026-10-01')
   })
 })

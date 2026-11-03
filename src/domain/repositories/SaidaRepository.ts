@@ -1,11 +1,11 @@
-import type { Saida, SaidaPayload, SaidaResumo, SaidaStatus } from '../entities/Saida'
+import type { Saida, SaidaFiltroStatus, SaidaPayload, SaidaResumo } from '../entities/Saida'
 import type { ControleDeSerie } from '../entities/Recorrencia'
 import type { ID, Paginated, Periodo } from '../../shared/types/common'
 
 export interface SaidaFiltro {
   periodo: Periodo
   categoriaId?: ID | null
-  status?: SaidaStatus | null
+  status?: SaidaFiltroStatus | null
   busca?: string
   page: number
   pageSize: number

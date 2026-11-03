@@ -152,8 +152,9 @@ describe('listarSaidasQuerySchema', () => {
     expect(listarSaidasQuerySchema.safeParse(queryValida({ pageSize: '100' })).success).toBe(true)
   })
 
-  it('aceita status omitido, PAGO ou PENDENTE e rejeita outro valor', () => {
+  it('aceita status omitido, PAGO, PENDENTE ou VENCIDO e rejeita outro valor', () => {
     expect(listarSaidasQuerySchema.safeParse(queryValida()).success).toBe(true)
+    expect(listarSaidasQuerySchema.safeParse(queryValida({ status: 'VENCIDO' })).success).toBe(true)
     expect(listarSaidasQuerySchema.safeParse(queryValida({ status: 'PAGO' })).success).toBe(true)
     expect(listarSaidasQuerySchema.safeParse(queryValida({ status: 'PENDENTE' })).success).toBe(true)
     expect(listarSaidasQuerySchema.safeParse(queryValida({ status: 'ATRASADO' })).success).toBe(false)
