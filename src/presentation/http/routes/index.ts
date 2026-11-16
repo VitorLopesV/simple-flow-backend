@@ -10,6 +10,7 @@ import { faturasRoutes } from './faturas.routes'
 import { keepaliveRoutes } from './keepalive.routes'
 import { navegacaoRoutes } from './navegacao.routes'
 import { saidasRoutes } from './saidas.routes'
+import { tarefasRoutes } from './tarefas.routes'
 
 export const routes = Router()
 
@@ -18,6 +19,7 @@ routes.use('/keepalive', keepaliveRoutes)
 routes.use('/auth', authRoutes)
 routes.use('/areas', areasRoutes)
 routes.use('/categorias', categoriasRoutes)
+routes.use('/tarefas', tarefasRoutes)
 routes.use('/entradas', entradasRoutes)
 routes.use('/saidas', saidasRoutes)
 routes.use('/cartoes', cartoesRoutes)

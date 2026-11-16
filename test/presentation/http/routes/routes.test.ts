@@ -30,6 +30,7 @@ const m = vi.hoisted(() => {
     primeiraDataComDados: vi.fn(),
     auth: controller('auth', ['registrar', 'login', 'refresh', 'me', 'atualizarPerfil']),
     areas: controller('areas', ['listar', 'criar', 'atualizar', 'remover']),
+    tarefas: controller('tarefas', ['listar', 'criar', 'atualizar', 'mover', 'arquivar', 'desarquivar', 'remover']),
     categorias: controller('categorias', ['listar']),
     entradas: controller('entradas', ['listar', 'resumo', 'criar', 'atualizar', 'remover']),
     saidas: controller('saidas', ['listar', 'resumo', 'criar', 'atualizar', 'remover']),
@@ -59,6 +60,7 @@ vi.mock('../../../../src/infrastructure/supabase/supabaseClientForRequest', () =
 }))
 vi.mock('../../../../src/presentation/http/controllers/authController', () => ({ authController: m.auth }))
 vi.mock('../../../../src/presentation/http/controllers/areasController', () => ({ areasController: m.areas }))
+vi.mock('../../../../src/presentation/http/controllers/tarefasController', () => ({ tarefasController: m.tarefas }))
 vi.mock('../../../../src/presentation/http/controllers/categoriasController', () => ({ categoriasController: m.categorias }))
 vi.mock('../../../../src/presentation/http/controllers/entradasController', () => ({ entradasController: m.entradas }))
 vi.mock('../../../../src/presentation/http/controllers/saidasController', () => ({ saidasController: m.saidas }))
@@ -108,6 +110,7 @@ const PERFIL = {
   fotoUrl: 'data:image/jpeg;base64,/9j/4AAQ',
 }
 const AREA = { nome: 'Estudos', cor: '#10b981' }
+const TAREFA = { titulo: 'Pintar a casa', areaId: UUID }
 const TRANSACAO = {
   descricao: 'Mercado',
   valor: 200,
@@ -141,6 +144,14 @@ const ROTAS_PROTEGIDAS: Rota[] = [
   { metodo: 'DELETE', caminho: `/api/areas/${UUID}`, acao: 'areas.remover' },
   { metodo: 'DELETE', caminho: `/api/areas/${UUID}?tarefas=excluir`, acao: 'areas.remover' },
   { metodo: 'DELETE', caminho: `/api/areas/${UUID}?tarefas=mover&destinoId=${UUID_2}`, acao: 'areas.remover' },
+  { metodo: 'GET', caminho: '/api/tarefas', acao: 'tarefas.listar' },
+  { metodo: 'GET', caminho: `/api/tarefas?areaId=${UUID}&arquivadas=true`, acao: 'tarefas.listar' },
+  { metodo: 'POST', caminho: '/api/tarefas', acao: 'tarefas.criar', body: TAREFA },
+  { metodo: 'PUT', caminho: `/api/tarefas/${UUID}`, acao: 'tarefas.atualizar', body: { titulo: 'Pintar a casa' } },
+  { metodo: 'PATCH', caminho: `/api/tarefas/${UUID}/area`, acao: 'tarefas.mover', body: { areaId: UUID_2 } },
+  { metodo: 'PATCH', caminho: `/api/tarefas/${UUID}/arquivar`, acao: 'tarefas.arquivar' },
+  { metodo: 'PATCH', caminho: `/api/tarefas/${UUID}/desarquivar`, acao: 'tarefas.desarquivar' },
+  { metodo: 'DELETE', caminho: `/api/tarefas/${UUID}`, acao: 'tarefas.remover' },
   { metodo: 'GET', caminho: '/api/categorias', acao: 'categorias.listar' },
   { metodo: 'GET', caminho: '/api/entradas/resumo?competencia=2026-08', acao: 'entradas.resumo' },
   { metodo: 'GET', caminho: '/api/entradas?mes=8&ano=2026', acao: 'entradas.listar' },
@@ -179,6 +190,15 @@ const ENTRADAS_INVALIDAS: (Omit<Rota, 'acao'> & { mensagem?: string })[] = [
   { metodo: 'DELETE', caminho: `/api/areas/${UUID}?tarefas=apagar`, mensagem: 'Escolha mover ou excluir as tarefas.' },
   { metodo: 'DELETE', caminho: `/api/areas/${UUID}?tarefas=mover`, mensagem: 'Informe a área de destino das tarefas.' },
   { metodo: 'DELETE', caminho: `/api/areas/${UUID}?destinoId=${UUID_2}`, mensagem: 'A área de destino só vale ao mover as tarefas.' },
+  { metodo: 'POST', caminho: '/api/tarefas', body: { areaId: UUID }, mensagem: 'Informe o título da tarefa.' },
+  { metodo: 'POST', caminho: '/api/tarefas', body: { titulo: 'x' }, mensagem: 'Área inválida.' },
+  { metodo: 'POST', caminho: '/api/tarefas', body: { ...TAREFA, tempoEstimado: 45 }, mensagem: 'Tempo estimado inválido: use 15, 30, 60, 120 ou 240 minutos.' },
+  { metodo: 'PUT', caminho: '/api/tarefas/abc', body: { titulo: 'x' }, mensagem: 'Identificador inválido.' },
+  { metodo: 'PATCH', caminho: `/api/tarefas/${UUID}/area`, body: { areaId: 'x' }, mensagem: 'Área de destino inválida.' },
+  { metodo: 'PATCH', caminho: '/api/tarefas/abc/arquivar', mensagem: 'Identificador inválido.' },
+  { metodo: 'PATCH', caminho: '/api/tarefas/abc/desarquivar', mensagem: 'Identificador inválido.' },
+  { metodo: 'DELETE', caminho: '/api/tarefas/abc', mensagem: 'Identificador inválido.' },
+  { metodo: 'GET', caminho: '/api/tarefas?arquivadas=talvez', mensagem: 'Filtro de arquivadas inválido, use true ou false.' },
   { metodo: 'POST', caminho: '/api/auth/registro', body: { email: 'ana', senha: 'segredo' }, mensagem: 'E-mail inválido.' },
   { metodo: 'POST', caminho: '/api/auth/login', body: { email: 'ana@exemplo.com', senha: '' }, mensagem: 'Informe a senha.' },
   { metodo: 'POST', caminho: '/api/auth/refresh', body: { refreshToken: '' }, mensagem: 'Informe o refresh token.' },

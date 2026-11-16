@@ -8,6 +8,7 @@ export type CategoriaRow = Tabelas['categorias']['Row']
 export type EntradaRow = Tabelas['entradas']['Row']
 export type FaturaRow = Tabelas['faturas']['Row']
 export type AtividadeRow = Tabelas['atividades']['Row']
+export type TarefaRow = Tabelas['tarefas']['Row']
 export type SaidaRow = Tabelas['saidas']['Row']
 export type TransacaoRow = Tabelas['transacoes_cartao']['Row']
 
@@ -139,6 +140,25 @@ export function linhaArea(sobrescritas: Partial<AreaRow> = {}): AreaRow {
     cor: '#10b981',
     sistema: false,
     user_id: USER_ID,
+    criado_em: '2026-01-01T00:00:00.000Z',
+    atualizado_em: '2026-01-01T00:00:00.000Z',
+    ...sobrescritas,
+  }
+}
+
+export function linhaTarefa(sobrescritas: Partial<TarefaRow> = {}): TarefaRow {
+  return {
+    id: 'tar-1',
+    user_id: USER_ID,
+    area_id: 'area-1',
+    titulo: 'Pintar a casa',
+    dia: null,
+    hora: null,
+    tempo_estimado_minutos: null,
+    dificuldade: null,
+    prioridade: null,
+    notas: null,
+    arquivada_em: null,
     criado_em: '2026-01-01T00:00:00.000Z',
     atualizado_em: '2026-01-01T00:00:00.000Z',
     ...sobrescritas,

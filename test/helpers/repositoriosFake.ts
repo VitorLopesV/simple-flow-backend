@@ -11,6 +11,7 @@ import type { FaturaRepository } from '../../src/domain/repositories/FaturaRepos
 import type { NavegacaoRepository } from '../../src/domain/repositories/NavegacaoRepository'
 import type { PerfilRepository } from '../../src/domain/repositories/PerfilRepository'
 import type { SaidaRepository } from '../../src/domain/repositories/SaidaRepository'
+import type { TarefaRepository } from '../../src/domain/repositories/TarefaRepository'
 
 /**
  * Implementações falsas das interfaces do domínio, com cada método espionado — os
@@ -59,6 +60,18 @@ export function criarAreaRepositoryFake() {
     moverTarefas: vi.fn(),
     removerTarefas: vi.fn(),
   } satisfies AreaRepository
+}
+
+export function criarTarefaRepositoryFake() {
+  return {
+    listar: vi.fn(),
+    buscarPorId: vi.fn(),
+    criar: vi.fn(),
+    atualizar: vi.fn(),
+    mover: vi.fn(),
+    definirArquivamento: vi.fn(),
+    remover: vi.fn(),
+  } satisfies TarefaRepository
 }
 
 export function criarCartaoRepositoryFake() {

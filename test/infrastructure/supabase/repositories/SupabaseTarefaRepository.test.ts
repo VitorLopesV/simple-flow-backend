@@ -1,0 +1,158 @@
+import { describe, expect, it } from 'vitest'
+
+import { NotFoundError } from '../../../../src/domain/errors/DomainError'
+import { SupabaseTarefaRepository } from '../../../../src/infrastructure/supabase/repositories/SupabaseTarefaRepository'
+import { USER_ID, linhaTarefa } from '../../../helpers/linhasSupabase'
+import { argumentos, criarSupabaseFake, falha, ok, usou } from '../../../helpers/supabaseFake'
+
+const ID = '123e4567-e89b-12d3-a456-426614174000'
+const ID_2 = '123e4567-e89b-12d3-a456-426614174001'
+const ERRO = { message: 'falha no banco' }
+const TAREFA = {
+  id: 'tar-1',
+  areaId: 'area-1',
+  titulo: 'Pintar a casa',
+  dia: null,
+  hora: null,
+  tempoEstimado: null,
+  dificuldade: null,
+  prioridade: null,
+  notas: null,
+  arquivada: false,
+  arquivadaEm: null,
+  criadoEm: '2026-01-01T00:00:00.000Z',
+}
+const EDICAO = {
+  titulo: 'Estudar',
+  dia: '2026-12-01',
+  hora: '08:30',
+  tempoEstimado: 60 as const,
+  dificuldade: 'MEDIA' as const,
+  prioridade: 'ALTA' as const,
+  notas: 'n',
+}
+
+function montar(respostas: Parameters<typeof criarSupabaseFake>[0]) {
+  const fake = criarSupabaseFake(respostas)
+  return { fake, repositorio: new SupabaseTarefaRepository(fake.client) }
+}
+
+describe('SupabaseTarefaRepository', () => {
+  it('listar: filtra pelo usuário, oculta arquivadas por padrão e ordena pelas mais recentes', async () => {
+    const { fake, repositorio } = montar({ tarefas: [ok([linhaTarefa()])] })
+
+    await expect(repositorio.listar(USER_ID, { incluirArquivadas: false })).resolves.toEqual([TAREFA])
+    const consulta = fake.consultas[0]!
+    expect(consulta.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    expect(consulta.chamadas).toContainEqual(['is', 'arquivada_em', null])
+    expect(consulta.chamadas).toContainEqual(['order', 'criado_em', { ascending: false }])
+    expect(argumentos(consulta, 'eq')).toEqual(['user_id', USER_ID])
+    expect(consulta.chamadas.some(([n, c]) => n === 'eq' && c === 'area_id')).toBe(false)
+  })
+
+  it('listar: filtra por área e inclui arquivadas quando pedido', async () => {
+    const { fake, repositorio } = montar({ tarefas: [ok([linhaTarefa({ arquivada_em: '2026-02-01T00:00:00.000Z' })])] })
+
+    const [tarefa] = await repositorio.listar(USER_ID, { areaId: ID, incluirArquivadas: true })
+
+    expect(tarefa).toMatchObject({ arquivada: true, arquivadaEm: '2026-02-01T00:00:00.000Z' })
+    expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'area_id', ID])
+    expect(usou(fake.consultas[0]!, 'is')).toBe(false)
+  })
+
+  it('listar: converte hora HH:MM:SS em HH:MM e propaga tempo, dificuldade e prioridade', async () => {
+    const { repositorio } = montar({
+      tarefas: [ok([linhaTarefa({ hora: '08:30:00', tempo_estimado_minutos: 60, dificuldade: 'FACIL', prioridade: 'BAIXA' })])],
+    })
+
+    await expect(repositorio.listar(USER_ID, { incluirArquivadas: false })).resolves.toMatchObject([
+      { hora: '08:30', tempoEstimado: 60, dificuldade: 'FACIL', prioridade: 'BAIXA' },
+    ])
+  })
+
+  it('listar: propaga o erro do banco', async () => {
+    const { repositorio } = montar({ tarefas: [falha(ERRO)] })
+    await expect(repositorio.listar(USER_ID, { incluirArquivadas: false })).rejects.toBe(ERRO)
+  })
+
+  it('buscarPorId: devolve a tarefa ou null, sempre filtrando por user_id', async () => {
+    const { fake, repositorio } = montar({ tarefas: [ok(linhaTarefa()), ok(null)] })
+
+    await expect(repositorio.buscarPorId(USER_ID, ID)).resolves.toEqual(TAREFA)
+    await expect(repositorio.buscarPorId(USER_ID, ID)).resolves.toBeNull()
+    expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+  })
+
+  it('buscarPorId: propaga o erro do banco', async () => {
+    const { repositorio } = montar({ tarefas: [falha(ERRO)] })
+    await expect(repositorio.buscarPorId(USER_ID, ID)).rejects.toBe(ERRO)
+  })
+
+  it('criar: grava em snake_case com o user_id e devolve a tarefa', async () => {
+    const { fake, repositorio } = montar({ tarefas: [ok(linhaTarefa())] })
+
+    await expect(repositorio.criar(USER_ID, { ...EDICAO, areaId: ID })).resolves.toEqual(TAREFA)
+    expect(argumentos(fake.consultas[0]!, 'insert')).toEqual([
+      {
+        titulo: 'Estudar',
+        dia: '2026-12-01',
+        hora: '08:30',
+        tempo_estimado_minutos: 60,
+        dificuldade: 'MEDIA',
+        prioridade: 'ALTA',
+        notas: 'n',
+        area_id: ID,
+        user_id: USER_ID,
+      },
+    ])
+  })
+
+  it('criar: propaga o erro do banco', async () => {
+    const { repositorio } = montar({ tarefas: [falha(ERRO)] })
+    await expect(repositorio.criar(USER_ID, { ...EDICAO, areaId: ID })).rejects.toBe(ERRO)
+  })
+
+  it('atualizar: altera só os campos editáveis, filtrando por id e user_id', async () => {
+    const { fake, repositorio } = montar({ tarefas: [ok(linhaTarefa())] })
+
+    await expect(repositorio.atualizar(USER_ID, ID, EDICAO)).resolves.toEqual(TAREFA)
+    const consulta = fake.consultas[0]!
+    expect(argumentos(consulta, 'update')![0]).not.toHaveProperty('area_id')
+    expect(consulta.chamadas).toContainEqual(['eq', 'id', ID])
+    expect(consulta.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+  })
+
+  it('atualizar: NotFoundError quando nenhuma linha é alterada; propaga erro do banco', async () => {
+    const { repositorio } = montar({ tarefas: [ok(null), falha(ERRO)] })
+
+    await expect(repositorio.atualizar(USER_ID, ID, EDICAO)).rejects.toBeInstanceOf(NotFoundError)
+    await expect(repositorio.atualizar(USER_ID, ID, EDICAO)).rejects.toBe(ERRO)
+  })
+
+  it('mover: troca só o area_id', async () => {
+    const { fake, repositorio } = montar({ tarefas: [ok(linhaTarefa({ area_id: ID_2 }))] })
+
+    await expect(repositorio.mover(USER_ID, ID, ID_2)).resolves.toMatchObject({ areaId: ID_2 })
+    expect(argumentos(fake.consultas[0]!, 'update')).toEqual([{ area_id: ID_2 }])
+    expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+  })
+
+  it('definirArquivamento: grava a data ou null', async () => {
+    const { fake, repositorio } = montar({ tarefas: [ok(linhaTarefa()), ok(linhaTarefa())] })
+
+    await repositorio.definirArquivamento(USER_ID, ID, '2026-03-01T10:00:00.000Z')
+    await repositorio.definirArquivamento(USER_ID, ID, null)
+
+    expect(argumentos(fake.consultas[0]!, 'update')).toEqual([{ arquivada_em: '2026-03-01T10:00:00.000Z' }])
+    expect(argumentos(fake.consultas[1]!, 'update')).toEqual([{ arquivada_em: null }])
+  })
+
+  it('remover: apaga filtrando por id e user_id; NotFoundError sem linhas; propaga erro', async () => {
+    const { fake, repositorio } = montar({ tarefas: [ok([{ id: ID }]), ok([]), falha(ERRO)] })
+
+    await expect(repositorio.remover(USER_ID, ID)).resolves.toBeUndefined()
+    expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    await expect(repositorio.remover(USER_ID, ID)).rejects.toBeInstanceOf(NotFoundError)
+    await expect(repositorio.remover(USER_ID, ID)).rejects.toBe(ERRO)
+  })
+})
