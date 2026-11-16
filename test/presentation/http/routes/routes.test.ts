@@ -31,6 +31,7 @@ const m = vi.hoisted(() => {
     auth: controller('auth', ['registrar', 'login', 'refresh', 'me', 'atualizarPerfil']),
     areas: controller('areas', ['listar', 'criar', 'atualizar', 'remover']),
     tarefas: controller('tarefas', ['listar', 'criar', 'atualizar', 'mover', 'arquivar', 'desarquivar', 'remover']),
+    rotinas: controller('rotinas', ['listar', 'criar', 'atualizar', 'remover']),
     categorias: controller('categorias', ['listar']),
     entradas: controller('entradas', ['listar', 'resumo', 'criar', 'atualizar', 'remover']),
     saidas: controller('saidas', ['listar', 'resumo', 'criar', 'atualizar', 'remover']),
@@ -61,6 +62,7 @@ vi.mock('../../../../src/infrastructure/supabase/supabaseClientForRequest', () =
 vi.mock('../../../../src/presentation/http/controllers/authController', () => ({ authController: m.auth }))
 vi.mock('../../../../src/presentation/http/controllers/areasController', () => ({ areasController: m.areas }))
 vi.mock('../../../../src/presentation/http/controllers/tarefasController', () => ({ tarefasController: m.tarefas }))
+vi.mock('../../../../src/presentation/http/controllers/rotinasController', () => ({ rotinasController: m.rotinas }))
 vi.mock('../../../../src/presentation/http/controllers/categoriasController', () => ({ categoriasController: m.categorias }))
 vi.mock('../../../../src/presentation/http/controllers/entradasController', () => ({ entradasController: m.entradas }))
 vi.mock('../../../../src/presentation/http/controllers/saidasController', () => ({ saidasController: m.saidas }))
@@ -111,6 +113,11 @@ const PERFIL = {
 }
 const AREA = { nome: 'Estudos', cor: '#10b981' }
 const TAREFA = { titulo: 'Pintar a casa', areaId: UUID }
+const ROTINA = {
+  nome: 'Remédio',
+  repeticao: { modo: 'DIAS_DA_SEMANA', dias: [1, 3] },
+  vezes: [{ hora: '08:00' }, { hora: null }],
+}
 const TRANSACAO = {
   descricao: 'Mercado',
   valor: 200,
@@ -152,6 +159,10 @@ const ROTAS_PROTEGIDAS: Rota[] = [
   { metodo: 'PATCH', caminho: `/api/tarefas/${UUID}/arquivar`, acao: 'tarefas.arquivar' },
   { metodo: 'PATCH', caminho: `/api/tarefas/${UUID}/desarquivar`, acao: 'tarefas.desarquivar' },
   { metodo: 'DELETE', caminho: `/api/tarefas/${UUID}`, acao: 'tarefas.remover' },
+  { metodo: 'GET', caminho: '/api/rotinas', acao: 'rotinas.listar' },
+  { metodo: 'POST', caminho: '/api/rotinas', acao: 'rotinas.criar', body: ROTINA },
+  { metodo: 'PUT', caminho: `/api/rotinas/${UUID}`, acao: 'rotinas.atualizar', body: ROTINA },
+  { metodo: 'DELETE', caminho: `/api/rotinas/${UUID}`, acao: 'rotinas.remover' },
   { metodo: 'GET', caminho: '/api/categorias', acao: 'categorias.listar' },
   { metodo: 'GET', caminho: '/api/entradas/resumo?competencia=2026-08', acao: 'entradas.resumo' },
   { metodo: 'GET', caminho: '/api/entradas?mes=8&ano=2026', acao: 'entradas.listar' },
@@ -198,6 +209,12 @@ const ENTRADAS_INVALIDAS: (Omit<Rota, 'acao'> & { mensagem?: string })[] = [
   { metodo: 'PATCH', caminho: '/api/tarefas/abc/arquivar', mensagem: 'Identificador inválido.' },
   { metodo: 'PATCH', caminho: '/api/tarefas/abc/desarquivar', mensagem: 'Identificador inválido.' },
   { metodo: 'DELETE', caminho: '/api/tarefas/abc', mensagem: 'Identificador inválido.' },
+  { metodo: 'POST', caminho: '/api/rotinas', body: { ...ROTINA, nome: ' ' }, mensagem: 'Informe o nome do item.' },
+  { metodo: 'POST', caminho: '/api/rotinas', body: { ...ROTINA, repeticao: { modo: 'DIAS_DA_SEMANA', dias: [] } }, mensagem: 'Marque pelo menos um dia da semana.' },
+  { metodo: 'POST', caminho: '/api/rotinas', body: { ...ROTINA, repeticao: { modo: 'A_CADA_N_DIAS', intervalo: 0, dataInicial: '2026-11-16' } }, mensagem: 'Informe o intervalo em dias (mínimo 1).' },
+  { metodo: 'POST', caminho: '/api/rotinas', body: { ...ROTINA, vezes: [] }, mensagem: 'Informe pelo menos uma vez no dia.' },
+  { metodo: 'PUT', caminho: '/api/rotinas/abc', body: ROTINA, mensagem: 'Identificador inválido.' },
+  { metodo: 'DELETE', caminho: '/api/rotinas/abc', mensagem: 'Identificador inválido.' },
   { metodo: 'GET', caminho: '/api/tarefas?arquivadas=talvez', mensagem: 'Filtro de arquivadas inválido, use true ou false.' },
   { metodo: 'POST', caminho: '/api/auth/registro', body: { email: 'ana', senha: 'segredo' }, mensagem: 'E-mail inválido.' },
   { metodo: 'POST', caminho: '/api/auth/login', body: { email: 'ana@exemplo.com', senha: '' }, mensagem: 'Informe a senha.' },

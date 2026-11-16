@@ -11,6 +11,7 @@ import type { FaturaRepository } from '../../src/domain/repositories/FaturaRepos
 import type { NavegacaoRepository } from '../../src/domain/repositories/NavegacaoRepository'
 import type { PerfilRepository } from '../../src/domain/repositories/PerfilRepository'
 import type { SaidaRepository } from '../../src/domain/repositories/SaidaRepository'
+import type { ItemRotinaRepository } from '../../src/domain/repositories/ItemRotinaRepository'
 import type { TarefaRepository } from '../../src/domain/repositories/TarefaRepository'
 
 /**
@@ -60,6 +61,16 @@ export function criarAreaRepositoryFake() {
     moverTarefas: vi.fn(),
     removerTarefas: vi.fn(),
   } satisfies AreaRepository
+}
+
+export function criarItemRotinaRepositoryFake() {
+  return {
+    listar: vi.fn(),
+    buscarPorId: vi.fn(),
+    criar: vi.fn(),
+    atualizar: vi.fn(),
+    remover: vi.fn(),
+  } satisfies ItemRotinaRepository
 }
 
 export function criarTarefaRepositoryFake() {
