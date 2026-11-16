@@ -19,6 +19,9 @@ const TAREFA = {
   prioridade: null,
   notas: null,
   sprintId: null,
+  concluidaEm: null,
+  concluida: false,
+  atrasada: false,
   arquivada: false,
   arquivadaEm: null,
   criadoEm: '2026-01-01T00:00:00.000Z',
@@ -146,6 +149,63 @@ describe('SupabaseTarefaRepository', () => {
 
     await repositorio.definirSprint(USER_ID, ID, { sprintId: null })
     expect(argumentos(fake.consultas[0]!, 'update')).toEqual([{ sprint_id: null }])
+  })
+
+  it('concluir: só preenche se ainda não concluída, filtrando por id e user_id', async () => {
+    const { fake, repositorio } = montar({
+      tarefas: [ok(linhaTarefa({ concluida_em: '2026-11-18T15:00:00.000Z', dia: '2026-11-18' }))],
+    })
+
+    await expect(repositorio.concluir(USER_ID, ID, '2026-11-18T15:00:00.000Z')).resolves.toMatchObject({
+      concluida: true,
+      concluidaEm: '2026-11-18T15:00:00.000Z',
+      atrasada: false,
+    })
+    const consulta = fake.consultas[0]!
+    expect(argumentos(consulta, 'update')).toEqual([{ concluida_em: '2026-11-18T15:00:00.000Z' }])
+    expect(consulta.chamadas).toContainEqual(['eq', 'id', ID])
+    expect(consulta.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    expect(consulta.chamadas).toContainEqual(['is', 'concluida_em', null])
+  })
+
+  it('concluir: se outra requisição já concluiu, devolve a conclusão original (user_id na releitura)', async () => {
+    const original = linhaTarefa({ concluida_em: '2026-11-18T14:00:00.000Z' })
+    const { fake, repositorio } = montar({ tarefas: [ok(null), ok(original)] })
+
+    await expect(repositorio.concluir(USER_ID, ID, '2026-11-18T15:00:00.000Z')).resolves.toMatchObject({
+      concluidaEm: '2026-11-18T14:00:00.000Z',
+    })
+    expect(fake.consultas[1]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+  })
+
+  it('concluir: NotFoundError se a tarefa sumiu; propaga erro do banco', async () => {
+    const { repositorio } = montar({ tarefas: [ok(null), ok(null), falha(ERRO)] })
+
+    await expect(repositorio.concluir(USER_ID, ID, '2026-11-18T15:00:00.000Z')).rejects.toBeInstanceOf(NotFoundError)
+    await expect(repositorio.concluir(USER_ID, ID, '2026-11-18T15:00:00.000Z')).rejects.toBe(ERRO)
+  })
+
+  it('mapeia o atraso da tarefa concluída (com hora: depois de início + tempo; sem hora: depois do dia)', async () => {
+    const { repositorio } = montar({
+      tarefas: [
+        ok([
+          linhaTarefa({ id: 'a', dia: '2026-11-16', hora: '12:00:00', tempo_estimado_minutos: 15, concluida_em: '2026-11-16T15:30:00.000Z' }),
+          linhaTarefa({ id: 'b', dia: '2026-11-16', hora: '12:00:00', tempo_estimado_minutos: 15, concluida_em: '2026-11-16T15:15:00.000Z' }),
+          linhaTarefa({ id: 'c', dia: '2026-11-16', concluida_em: '2026-11-17T03:00:00.000Z' }),
+          linhaTarefa({ id: 'd', dia: '2026-11-16', concluida_em: '2026-11-17T02:59:00.000Z' }),
+          linhaTarefa({ id: 'e', dia: '2026-11-16' }),
+        ]),
+      ],
+    })
+
+    const lista = await repositorio.listar(USER_ID, { incluirArquivadas: false })
+    expect(lista.map((t) => [t.id, t.concluida, t.atrasada])).toEqual([
+      ['a', true, true],
+      ['b', true, false],
+      ['c', true, true],
+      ['d', true, false],
+      ['e', false, false],
+    ])
   })
 
   it('criar: propaga o erro do banco', async () => {

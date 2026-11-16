@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { NotFoundError } from '../../../../src/domain/errors/DomainError'
 import { SupabaseOcorrenciaRotinaRepository } from '../../../../src/infrastructure/supabase/repositories/SupabaseOcorrenciaRotinaRepository'
 import { USER_ID, linhaOcorrenciaRotina } from '../../../helpers/linhasSupabase'
 import { criarSupabaseFake, falha, ok } from '../../../helpers/supabaseFake'
@@ -24,6 +25,51 @@ describe('SupabaseOcorrenciaRotinaRepository', () => {
     expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
     expect(fake.consultas[0]!.chamadas).toContainEqual(['order', 'ordem', { ascending: true }])
     await expect(repositorio.listarDoSprint(USER_ID, 'spr-1')).rejects.toBe(ERRO)
+  })
+
+  it('buscarPorId: filtra por id e user_id; nulo quando não existe; propaga erro', async () => {
+    const fake = criarSupabaseFake({ ocorrencias_rotina: [ok(linhaOcorrenciaRotina()), ok(null), falha(ERRO)] })
+    const repositorio = new SupabaseOcorrenciaRotinaRepository(fake.client)
+
+    await expect(repositorio.buscarPorId(USER_ID, 'oco-1')).resolves.toMatchObject({ id: 'oco-1', concluidaEm: null })
+    expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'id', 'oco-1'])
+    expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    await expect(repositorio.buscarPorId(USER_ID, 'x')).resolves.toBeNull()
+    await expect(repositorio.buscarPorId(USER_ID, 'x')).rejects.toBe(ERRO)
+  })
+
+  it('concluir: só preenche se ainda não concluída, filtrando por id e user_id', async () => {
+    const fake = criarSupabaseFake({
+      ocorrencias_rotina: [ok(linhaOcorrenciaRotina({ concluida_em: '2026-11-16T15:00:00.000Z' }))],
+    })
+
+    await expect(
+      new SupabaseOcorrenciaRotinaRepository(fake.client).concluir(USER_ID, 'oco-1', '2026-11-16T15:00:00.000Z'),
+    ).resolves.toMatchObject({ concluidaEm: '2026-11-16T15:00:00.000Z' })
+    const chamadas = fake.consultas[0]!.chamadas
+    expect(chamadas).toContainEqual(['update', { concluida_em: '2026-11-16T15:00:00.000Z' }])
+    expect(chamadas).toContainEqual(['eq', 'id', 'oco-1'])
+    expect(chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    expect(chamadas).toContainEqual(['is', 'concluida_em', null])
+  })
+
+  it('concluir: já concluída por outra requisição devolve a original; sumiu = NotFoundError; propaga erro', async () => {
+    const fake = criarSupabaseFake({
+      ocorrencias_rotina: [
+        ok(null),
+        ok(linhaOcorrenciaRotina({ concluida_em: '2026-11-16T14:00:00.000Z' })),
+        ok(null),
+        ok(null),
+        falha(ERRO),
+      ],
+    })
+    const repositorio = new SupabaseOcorrenciaRotinaRepository(fake.client)
+
+    await expect(repositorio.concluir(USER_ID, 'oco-1', '2026-11-16T15:00:00.000Z')).resolves.toMatchObject({
+      concluidaEm: '2026-11-16T14:00:00.000Z',
+    })
+    await expect(repositorio.concluir(USER_ID, 'oco-1', '2026-11-16T15:00:00.000Z')).rejects.toBeInstanceOf(NotFoundError)
+    await expect(repositorio.concluir(USER_ID, 'oco-1', '2026-11-16T15:00:00.000Z')).rejects.toBe(ERRO)
   })
 
   it('inserirVarias: upsert que ignora duplicata, com user_id e marcação de lembrete', async () => {

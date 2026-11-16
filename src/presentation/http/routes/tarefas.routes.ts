@@ -30,6 +30,9 @@ tarefasRoutes.patch(
   validate(moverTarefaSchema),
   asyncHandler(tarefasController.mover),
 )
+tarefasRoutes.patch('/:id/concluir', validate(idParamSchema, 'params'), asyncHandler(tarefasController.concluir))
+// Concluir é definitivo: esta rota existe só para devolver a recusa (409) com mensagem clara.
+tarefasRoutes.delete('/:id/conclusao', validate(idParamSchema, 'params'), asyncHandler(tarefasController.desmarcarConclusao))
 tarefasRoutes.patch('/:id/arquivar', validate(idParamSchema, 'params'), asyncHandler(tarefasController.arquivar))
 tarefasRoutes.patch('/:id/desarquivar', validate(idParamSchema, 'params'), asyncHandler(tarefasController.desarquivar))
 tarefasRoutes.delete('/:id', validate(idParamSchema, 'params'), asyncHandler(tarefasController.remover))

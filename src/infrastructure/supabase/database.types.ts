@@ -494,6 +494,7 @@ export type Database = {
           area_id: string
           arquivada_em: string | null
           atualizado_em: string
+          concluida_em: string | null
           criado_em: string
           dia: string | null
           dificuldade: string | null
@@ -510,6 +511,7 @@ export type Database = {
           area_id: string
           arquivada_em?: string | null
           atualizado_em?: string
+          concluida_em?: string | null
           criado_em?: string
           dia?: string | null
           dificuldade?: string | null
@@ -526,6 +528,7 @@ export type Database = {
           area_id?: string
           arquivada_em?: string | null
           atualizado_em?: string
+          concluida_em?: string | null
           criado_em?: string
           dia?: string | null
           dificuldade?: string | null

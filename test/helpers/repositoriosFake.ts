@@ -82,6 +82,7 @@ export function criarTarefaRepositoryFake() {
     criar: vi.fn(),
     atualizar: vi.fn(),
     definirSprint: vi.fn(),
+    concluir: vi.fn(),
     mover: vi.fn(),
     definirArquivamento: vi.fn(),
     remover: vi.fn(),
@@ -164,6 +165,8 @@ export function criarSprintRepositoryFake() {
 export function criarOcorrenciaRotinaRepositoryFake() {
   return {
     listarDoSprint: vi.fn(),
+    buscarPorId: vi.fn(),
+    concluir: vi.fn(),
     inserirVarias: vi.fn(),
   } satisfies OcorrenciaRotinaRepository
 }

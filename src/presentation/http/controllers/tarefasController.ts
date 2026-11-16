@@ -2,8 +2,10 @@ import type { Request, Response } from 'express'
 
 import { ArquivarTarefa } from '../../../application/use-cases/tarefas/ArquivarTarefa'
 import { AtualizarTarefa } from '../../../application/use-cases/tarefas/AtualizarTarefa'
+import { ConcluirTarefa } from '../../../application/use-cases/tarefas/ConcluirTarefa'
 import { CriarTarefa } from '../../../application/use-cases/tarefas/CriarTarefa'
 import { DesarquivarTarefa } from '../../../application/use-cases/tarefas/DesarquivarTarefa'
+import { DesmarcarConclusaoTarefa } from '../../../application/use-cases/tarefas/DesmarcarConclusaoTarefa'
 import { ListarTarefas } from '../../../application/use-cases/tarefas/ListarTarefas'
 import { MoverTarefa } from '../../../application/use-cases/tarefas/MoverTarefa'
 import { RemoverTarefa } from '../../../application/use-cases/tarefas/RemoverTarefa'
@@ -58,6 +60,14 @@ export const tarefasController = {
       req.body.areaId,
     )
     res.json(tarefa)
+  },
+
+  async concluir(req: Request, res: Response) {
+    res.json(await new ConcluirTarefa(tarefaRepositorio(req), sprintRepositorio(req)).execute(req.usuario!.id, req.params.id))
+  },
+
+  async desmarcarConclusao(req: Request, _res: Response) {
+    await new DesmarcarConclusaoTarefa(tarefaRepositorio(req)).execute(req.usuario!.id, req.params.id)
   },
 
   async arquivar(req: Request, res: Response) {

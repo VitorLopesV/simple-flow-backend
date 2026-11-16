@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   addDias,
+  addMinutos,
+  dataHoraAtual,
   addMeses,
   competenciaAtual,
   dataAtual,
@@ -187,5 +189,18 @@ describe('segundaDaSemana', () => {
     expect(dataAtual(new Date('2026-11-21T02:59:59Z'))).toBe('2026-11-20')
     expect(dataAtual(new Date('2026-11-21T03:00:00Z'))).toBe('2026-11-21')
     expect(segundaDaSemana('2026-11-21')).toBe('2026-11-16')
+  })
+})
+
+describe('dataHoraAtual e addMinutos', () => {
+  it('dataHoraAtual devolve o relógio de São Paulo, inclusive na virada de dia e meia-noite', () => {
+    expect(dataHoraAtual(new Date('2026-11-16T15:30:05.000Z'))).toBe('2026-11-16T12:30:05')
+    expect(dataHoraAtual(new Date('2026-11-17T02:59:59.000Z'))).toBe('2026-11-16T23:59:59')
+    expect(dataHoraAtual(new Date('2026-11-17T03:00:00.000Z'))).toBe('2026-11-17T00:00:00')
+  })
+
+  it('addMinutos soma sem fuso, atravessando a meia-noite; aceita com e sem segundos', () => {
+    expect(addMinutos('2026-11-16T12:00', 15)).toBe('2026-11-16T12:15:00')
+    expect(addMinutos('2026-11-16T23:50:30', 15)).toBe('2026-11-17T00:05:30')
   })
 })
