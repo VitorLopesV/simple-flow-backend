@@ -1,6 +1,7 @@
 import { vi } from 'vitest'
 
 import type { Categoria } from '../../src/domain/entities/Categoria'
+import type { AreaRepository } from '../../src/domain/repositories/AreaRepository'
 import type { AuthService } from '../../src/domain/repositories/AuthService'
 import type { CartaoRepository } from '../../src/domain/repositories/CartaoRepository'
 import type { CategoriaRepository } from '../../src/domain/repositories/CategoriaRepository'
@@ -44,6 +45,20 @@ export function criarSaidaRepositoryFake() {
     removerVarios: vi.fn(),
     marcarSerieEncerrada: vi.fn(),
   } satisfies SaidaRepository
+}
+
+export function criarAreaRepositoryFake() {
+  return {
+    listar: vi.fn(),
+    buscarPorId: vi.fn(),
+    buscarPorNome: vi.fn(),
+    criar: vi.fn(),
+    atualizar: vi.fn(),
+    remover: vi.fn(),
+    contarTarefas: vi.fn(),
+    moverTarefas: vi.fn(),
+    removerTarefas: vi.fn(),
+  } satisfies AreaRepository
 }
 
 export function criarCartaoRepositoryFake() {

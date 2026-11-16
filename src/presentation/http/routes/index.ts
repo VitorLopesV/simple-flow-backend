@@ -1,5 +1,6 @@
 import { Router } from 'express'
 
+import { areasRoutes } from './areas.routes'
 import { authRoutes } from './auth.routes'
 import { cartoesRoutes } from './cartoes.routes'
 import { categoriasRoutes } from './categorias.routes'
@@ -15,6 +16,7 @@ export const routes = Router()
 routes.get('/health', (_req, res) => res.json({ status: 'ok' }))
 routes.use('/keepalive', keepaliveRoutes)
 routes.use('/auth', authRoutes)
+routes.use('/areas', areasRoutes)
 routes.use('/categorias', categoriasRoutes)
 routes.use('/entradas', entradasRoutes)
 routes.use('/saidas', saidasRoutes)

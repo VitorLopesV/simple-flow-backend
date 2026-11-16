@@ -2,6 +2,7 @@ import type { Database } from '../../src/infrastructure/supabase/database.types'
 
 type Tabelas = Database['public']['Tables']
 
+export type AreaRow = Tabelas['areas']['Row']
 export type CartaoRow = Tabelas['cartoes']['Row']
 export type CategoriaRow = Tabelas['categorias']['Row']
 export type EntradaRow = Tabelas['entradas']['Row']
@@ -127,6 +128,19 @@ export function linhaAtividade(sobrescritas: Partial<AtividadeRow> = {}): Ativid
     data: '2026-08-05',
     categoria_id: 'cat-fixa',
     criado_em: '2026-08-05T12:00:00.000Z',
+    ...sobrescritas,
+  }
+}
+
+export function linhaArea(sobrescritas: Partial<AreaRow> = {}): AreaRow {
+  return {
+    id: 'area-1',
+    nome: 'Estudos',
+    cor: '#10b981',
+    sistema: false,
+    user_id: USER_ID,
+    criado_em: '2026-01-01T00:00:00.000Z',
+    atualizado_em: '2026-01-01T00:00:00.000Z',
     ...sobrescritas,
   }
 }
