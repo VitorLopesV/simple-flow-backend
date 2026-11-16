@@ -11,6 +11,7 @@ import { keepaliveRoutes } from './keepalive.routes'
 import { navegacaoRoutes } from './navegacao.routes'
 import { rotinasRoutes } from './rotinas.routes'
 import { saidasRoutes } from './saidas.routes'
+import { sprintsRoutes } from './sprints.routes'
 import { tarefasRoutes } from './tarefas.routes'
 
 export const routes = Router()
@@ -22,6 +23,7 @@ routes.use('/areas', areasRoutes)
 routes.use('/categorias', categoriasRoutes)
 routes.use('/tarefas', tarefasRoutes)
 routes.use('/rotinas', rotinasRoutes)
+routes.use('/sprints', sprintsRoutes)
 routes.use('/entradas', entradasRoutes)
 routes.use('/saidas', saidasRoutes)
 routes.use('/cartoes', cartoesRoutes)

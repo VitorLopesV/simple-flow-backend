@@ -32,6 +32,7 @@ const m = vi.hoisted(() => {
     areas: controller('areas', ['listar', 'criar', 'atualizar', 'remover']),
     tarefas: controller('tarefas', ['listar', 'criar', 'atualizar', 'mover', 'arquivar', 'desarquivar', 'remover']),
     rotinas: controller('rotinas', ['listar', 'criar', 'atualizar', 'remover']),
+    sprints: controller('sprints', ['atual', 'proximo']),
     categorias: controller('categorias', ['listar']),
     entradas: controller('entradas', ['listar', 'resumo', 'criar', 'atualizar', 'remover']),
     saidas: controller('saidas', ['listar', 'resumo', 'criar', 'atualizar', 'remover']),
@@ -63,6 +64,7 @@ vi.mock('../../../../src/presentation/http/controllers/authController', () => ({
 vi.mock('../../../../src/presentation/http/controllers/areasController', () => ({ areasController: m.areas }))
 vi.mock('../../../../src/presentation/http/controllers/tarefasController', () => ({ tarefasController: m.tarefas }))
 vi.mock('../../../../src/presentation/http/controllers/rotinasController', () => ({ rotinasController: m.rotinas }))
+vi.mock('../../../../src/presentation/http/controllers/sprintsController', () => ({ sprintsController: m.sprints }))
 vi.mock('../../../../src/presentation/http/controllers/categoriasController', () => ({ categoriasController: m.categorias }))
 vi.mock('../../../../src/presentation/http/controllers/entradasController', () => ({ entradasController: m.entradas }))
 vi.mock('../../../../src/presentation/http/controllers/saidasController', () => ({ saidasController: m.saidas }))
@@ -163,6 +165,8 @@ const ROTAS_PROTEGIDAS: Rota[] = [
   { metodo: 'POST', caminho: '/api/rotinas', acao: 'rotinas.criar', body: ROTINA },
   { metodo: 'PUT', caminho: `/api/rotinas/${UUID}`, acao: 'rotinas.atualizar', body: ROTINA },
   { metodo: 'DELETE', caminho: `/api/rotinas/${UUID}`, acao: 'rotinas.remover' },
+  { metodo: 'GET', caminho: '/api/sprints/atual', acao: 'sprints.atual' },
+  { metodo: 'GET', caminho: '/api/sprints/proximo', acao: 'sprints.proximo' },
   { metodo: 'GET', caminho: '/api/categorias', acao: 'categorias.listar' },
   { metodo: 'GET', caminho: '/api/entradas/resumo?competencia=2026-08', acao: 'entradas.resumo' },
   { metodo: 'GET', caminho: '/api/entradas?mes=8&ano=2026', acao: 'entradas.listar' },

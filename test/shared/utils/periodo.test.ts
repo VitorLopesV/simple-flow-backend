@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  addDias,
   addMeses,
   competenciaAtual,
   dataAtual,
@@ -10,6 +11,7 @@ import {
   mesAnterior,
   paraCompetencia,
   paraPeriodo,
+  segundaDaSemana,
   ultimosPeriodos,
 } from '../../../src/shared/utils/periodo'
 
@@ -150,5 +152,40 @@ describe('dataAtual', () => {
     // 30/09 às 21h30 em São Paulo — em UTC já é 01/10.
     expect(dataAtual(new Date('2026-10-01T00:30:00.000Z'))).toBe('2026-09-30')
     expect(dataAtual(new Date('2026-10-01T03:00:00.000Z'))).toBe('2026-10-01')
+  })
+})
+
+describe('addDias', () => {
+  it('soma e subtrai dias atravessando mês e ano', () => {
+    expect(addDias('2026-11-30', 1)).toBe('2026-12-01')
+    expect(addDias('2026-12-31', 1)).toBe('2027-01-01')
+    expect(addDias('2026-03-01', -1)).toBe('2026-02-28')
+    expect(addDias('2026-11-16', 0)).toBe('2026-11-16')
+  })
+})
+
+describe('segundaDaSemana', () => {
+  // 2026-11-16 é segunda.
+  it.each([
+    ['2026-11-16', '2026-11-16'],
+    ['2026-11-18', '2026-11-16'],
+    ['2026-11-20', '2026-11-16'],
+    ['2026-11-21', '2026-11-16'],
+    ['2026-11-22', '2026-11-16'],
+    ['2026-11-23', '2026-11-23'],
+    ['2027-01-01', '2026-12-28'],
+  ])('%s -> %s', (data, segunda) => {
+    expect(segundaDaSemana(data)).toBe(segunda)
+  })
+
+  it('domingo 23:59 em São Paulo ainda é a semana que acaba; segunda 00:00 já é a nova', () => {
+    expect(segundaDaSemana(dataAtual(new Date('2026-11-23T02:59:59Z')))).toBe('2026-11-16')
+    expect(segundaDaSemana(dataAtual(new Date('2026-11-23T03:00:00Z')))).toBe('2026-11-23')
+  })
+
+  it('sexta 23:59 em São Paulo ainda é sexta; sábado 00:00 continua na mesma semana', () => {
+    expect(dataAtual(new Date('2026-11-21T02:59:59Z'))).toBe('2026-11-20')
+    expect(dataAtual(new Date('2026-11-21T03:00:00Z'))).toBe('2026-11-21')
+    expect(segundaDaSemana('2026-11-21')).toBe('2026-11-16')
   })
 })

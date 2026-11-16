@@ -10,6 +10,8 @@ import type { EntradaRepository } from '../../src/domain/repositories/EntradaRep
 import type { FaturaRepository } from '../../src/domain/repositories/FaturaRepository'
 import type { NavegacaoRepository } from '../../src/domain/repositories/NavegacaoRepository'
 import type { PerfilRepository } from '../../src/domain/repositories/PerfilRepository'
+import type { OcorrenciaRotinaRepository } from '../../src/domain/repositories/OcorrenciaRotinaRepository'
+import type { SprintRepository } from '../../src/domain/repositories/SprintRepository'
 import type { SaidaRepository } from '../../src/domain/repositories/SaidaRepository'
 import type { ItemRotinaRepository } from '../../src/domain/repositories/ItemRotinaRepository'
 import type { TarefaRepository } from '../../src/domain/repositories/TarefaRepository'
@@ -149,4 +151,18 @@ export function criarPerfilRepositoryFake() {
 
 export function criarNavegacaoRepositoryFake() {
   return { primeiraDataComDados: vi.fn() } satisfies NavegacaoRepository
+}
+
+export function criarSprintRepositoryFake() {
+  return {
+    garantir: vi.fn(),
+    marcarRotinaGerada: vi.fn(),
+  } satisfies SprintRepository
+}
+
+export function criarOcorrenciaRotinaRepositoryFake() {
+  return {
+    listarDoSprint: vi.fn(),
+    inserirVarias: vi.fn(),
+  } satisfies OcorrenciaRotinaRepository
 }

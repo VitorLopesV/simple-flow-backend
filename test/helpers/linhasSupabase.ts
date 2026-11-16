@@ -10,6 +10,8 @@ export type FaturaRow = Tabelas['faturas']['Row']
 export type AtividadeRow = Tabelas['atividades']['Row']
 export type TarefaRow = Tabelas['tarefas']['Row']
 export type ItemRotinaRow = Tabelas['itens_rotina']['Row']
+export type SprintRow = Tabelas['sprints']['Row']
+export type OcorrenciaRotinaRow = Tabelas['ocorrencias_rotina']['Row']
 export type SaidaRow = Tabelas['saidas']['Row']
 export type TransacaoRow = Tabelas['transacoes_cartao']['Row']
 
@@ -179,6 +181,38 @@ export function linhaTarefa(sobrescritas: Partial<TarefaRow> = {}): TarefaRow {
     arquivada_em: null,
     criado_em: '2026-01-01T00:00:00.000Z',
     atualizado_em: '2026-01-01T00:00:00.000Z',
+    ...sobrescritas,
+  }
+}
+
+export function linhaSprint(sobrescritas: Partial<SprintRow> = {}): SprintRow {
+  return {
+    id: 'spr-1',
+    user_id: USER_ID,
+    inicio: '2026-11-16',
+    fim: '2026-11-20',
+    situacao: 'ABERTO',
+    rotina_gerada_em: null,
+    criado_em: '2026-01-01T00:00:00.000Z',
+    atualizado_em: '2026-01-01T00:00:00.000Z',
+    ...sobrescritas,
+  }
+}
+
+export function linhaOcorrenciaRotina(sobrescritas: Partial<OcorrenciaRotinaRow> = {}): OcorrenciaRotinaRow {
+  return {
+    id: 'oco-1',
+    user_id: USER_ID,
+    sprint_id: 'spr-1',
+    item_id: 'rot-1',
+    nome: 'Tomar remédio',
+    data: '2026-11-16',
+    hora: '08:00',
+    indice: 0,
+    ordem: 0,
+    lembrete: false,
+    concluida_em: null,
+    criado_em: '2026-01-01T00:00:00.000Z',
     ...sobrescritas,
   }
 }
