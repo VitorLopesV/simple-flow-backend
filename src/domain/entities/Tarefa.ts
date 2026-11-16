@@ -21,13 +21,15 @@ export interface Tarefa {
   dificuldade: Dificuldade | null
   prioridade: Prioridade | null
   notas: string | null
+  /** Sprint em que a tarefa está (entrada e saída são da #69); nulo = só no backlog. */
+  sprintId: ID | null
   arquivada: boolean
   arquivadaEm: string | null
   criadoEm: string
 }
 
 /** Campos editáveis; a área muda só por `MoverTarefa`, que valida o destino. */
-export type TarefaEdicao = Omit<Tarefa, 'id' | 'areaId' | 'arquivada' | 'arquivadaEm' | 'criadoEm'>
+export type TarefaEdicao = Omit<Tarefa, 'id' | 'areaId' | 'sprintId' | 'arquivada' | 'arquivadaEm' | 'criadoEm'>
 
 export type TarefaPayload = TarefaEdicao & Pick<Tarefa, 'areaId'>
 

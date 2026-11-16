@@ -110,6 +110,19 @@ describe('calcularPlacar', () => {
     expect(calcularPlacar([], pequenas.map((t, i) => ({ ...t, concluida: i < 17 })), INICIO, FIM).bonus).toBe(false)
   })
 
+  it('borda dos 90%: 899/1000 e 89,96% não liberam o bônus (a decisão é por inteiros, não pelo percentual arredondado)', () => {
+    const pequenas = (total: number, concluidas: number) =>
+      Array.from({ length: total }, (_, i) =>
+        tarefa({ id: String(i), tempoEstimado: 15, dificuldade: 'FACIL', prioridade: 'BAIXA', concluida: i < concluidas }),
+      )
+    // 899 de 1000 tarefas de 2 pontos: 89,9%
+    expect(calcularPlacar([], pequenas(1000, 899), INICIO, FIM)).toMatchObject({ percentual: 89.9, bonus: false })
+    // 4498 de 5000 = 89,96%: o percentual arredondado mostra 90, mas o bônus continua negado
+    expect(calcularPlacar([], pequenas(5000, 4498), INICIO, FIM)).toMatchObject({ percentual: 90, bonus: false })
+    // 4500 de 5000 = 90% exatos libera
+    expect(calcularPlacar([], pequenas(5000, 4500), INICIO, FIM)).toMatchObject({ percentual: 90, bonus: true })
+  })
+
   it('arredonda o percentual em uma casa decimal', () => {
     const placar = calcularPlacar([{ data: '2026-11-16', concluidaEm: FEITA }], [tarefa()], INICIO, FIM)
     expect(placar).toMatchObject({ total: 55, feitos: 40, percentual: 72.7 })

@@ -501,6 +501,7 @@ export type Database = {
           id: string
           notas: string | null
           prioridade: string | null
+          sprint_id: string | null
           tempo_estimado_minutos: number | null
           titulo: string
           user_id: string
@@ -516,6 +517,7 @@ export type Database = {
           id?: string
           notas?: string | null
           prioridade?: string | null
+          sprint_id?: string | null
           tempo_estimado_minutos?: number | null
           titulo: string
           user_id: string
@@ -531,6 +533,7 @@ export type Database = {
           id?: string
           notas?: string | null
           prioridade?: string | null
+          sprint_id?: string | null
           tempo_estimado_minutos?: number | null
           titulo?: string
           user_id?: string

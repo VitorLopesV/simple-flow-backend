@@ -10,6 +10,13 @@ const m = vi.hoisted(() => ({
   execute: vi.fn(),
   ObterSprint: vi.fn(),
   RepositorioTarefas: vi.fn(function (client: unknown) { return { repositorio: 'tarefas', client } }),
+  RepositorioTarefa: vi.fn(function (client: unknown) { return { repositorio: 'tarefa', client } }),
+  executeAdicionar: vi.fn(),
+  executeMover: vi.fn(),
+  executeRemover: vi.fn(),
+  Adicionar: vi.fn(),
+  Mover: vi.fn(),
+  Remover: vi.fn(),
   executePlacar: vi.fn(),
   ObterPlacar: vi.fn(),
 }))
@@ -18,6 +25,10 @@ vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseSprintRepo
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseOcorrenciaRotinaRepository', () => ({ SupabaseOcorrenciaRotinaRepository: m.RepositorioOcorrencia }))
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseItemRotinaRepository', () => ({ SupabaseItemRotinaRepository: m.RepositorioItem }))
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseTarefasDoSprintRepository', () => ({ SupabaseTarefasDoSprintRepository: m.RepositorioTarefas }))
+vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseTarefaRepository', () => ({ SupabaseTarefaRepository: m.RepositorioTarefa }))
+vi.mock('../../../../src/application/use-cases/sprints/AdicionarTarefaAoSprint', () => ({ AdicionarTarefaAoSprint: m.Adicionar }))
+vi.mock('../../../../src/application/use-cases/sprints/MoverTarefaNoSprint', () => ({ MoverTarefaNoSprint: m.Mover }))
+vi.mock('../../../../src/application/use-cases/sprints/RemoverTarefaDoSprint', () => ({ RemoverTarefaDoSprint: m.Remover }))
 vi.mock('../../../../src/application/use-cases/sprints/ObterPlacarDoSprint', () => ({ ObterPlacarDoSprint: m.ObterPlacar }))
 vi.mock('../../../../src/application/use-cases/sprints/ObterSprint', () => ({ ObterSprint: m.ObterSprint }))
 
@@ -26,6 +37,9 @@ describe('sprintsController', () => {
     vi.clearAllMocks()
     m.ObterSprint.mockImplementation(function () { return { execute: m.execute } })
     m.ObterPlacar.mockImplementation(function () { return { execute: m.executePlacar } })
+    m.Adicionar.mockImplementation(function () { return { execute: m.executeAdicionar } })
+    m.Mover.mockImplementation(function () { return { execute: m.executeMover } })
+    m.Remover.mockImplementation(function () { return { execute: m.executeRemover } })
   })
 
   it.each([
@@ -73,5 +87,53 @@ describe('sprintsController', () => {
     expect(m.ObterPlacar).toHaveBeenCalledWith(expect.objectContaining({ execute: m.execute }), m.RepositorioTarefas.mock.results[0]!.value)
     expect(m.executePlacar).toHaveBeenCalledWith(USUARIO.id, alvo)
     expect(res.json).toHaveBeenCalledWith({ placar: { total: 0 } })
+  })
+
+  it('adicionarTarefa: compõe tarefa e sprint com o client da requisição e responde 201', async () => {
+    m.executeAdicionar.mockResolvedValue({ id: 't' })
+    const req = criarRequisicao({ body: { tarefaId: 't', dia: '2026-11-18' } })
+    const res = criarResposta()
+
+    await sprintsController.adicionarTarefa(req, res)
+
+    expect(m.RepositorioTarefa).toHaveBeenCalledWith(req.supabase)
+    expect(m.RepositorioSprint).toHaveBeenCalledWith(req.supabase)
+    expect(m.Adicionar).toHaveBeenCalledWith(m.RepositorioTarefa.mock.results[0]!.value, m.RepositorioSprint.mock.results[0]!.value)
+    expect(m.executeAdicionar).toHaveBeenCalledWith(USUARIO.id, 't', '2026-11-18')
+    expect(res.status).toHaveBeenCalledWith(201)
+    expect(res.json).toHaveBeenCalledWith({ id: 't' })
+  })
+
+  it('moverTarefa: repassa o id e o novo dia', async () => {
+    m.executeMover.mockResolvedValue({ id: 't' })
+    const req = criarRequisicao({ params: { id: 't' }, body: { dia: '2026-11-19' } })
+    const res = criarResposta()
+
+    await sprintsController.moverTarefa(req, res)
+
+    expect(m.Mover).toHaveBeenCalledWith(m.RepositorioTarefa.mock.results[0]!.value, m.RepositorioSprint.mock.results[0]!.value)
+    expect(m.executeMover).toHaveBeenCalledWith(USUARIO.id, 't', '2026-11-19')
+    expect(res.json).toHaveBeenCalledWith({ id: 't' })
+  })
+
+  it('removerTarefa: devolve a tarefa ao backlog', async () => {
+    m.executeRemover.mockResolvedValue({ id: 't' })
+    const req = criarRequisicao({ params: { id: 't' } })
+    const res = criarResposta()
+
+    await sprintsController.removerTarefa(req, res)
+
+    expect(m.Remover).toHaveBeenCalledWith(m.RepositorioTarefa.mock.results[0]!.value)
+    expect(m.executeRemover).toHaveBeenCalledWith(USUARIO.id, 't')
+    expect(res.json).toHaveBeenCalledWith({ id: 't' })
+  })
+
+  it('propaga o erro de trava (409) sem responder', async () => {
+    const erro = new Error('travada')
+    m.executeRemover.mockRejectedValue(erro)
+    const res = criarResposta()
+
+    await expect(sprintsController.removerTarefa(criarRequisicao({ params: { id: 't' } }), res)).rejects.toBe(erro)
+    expect(res.json).not.toHaveBeenCalled()
   })
 })

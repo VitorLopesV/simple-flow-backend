@@ -1,19 +1,45 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { TarefaDoSprint } from '../../../domain/entities/PlacarDoSprint'
+import type { Dificuldade, Prioridade, TempoEstimado } from '../../../domain/entities/Tarefa'
 import type { TarefasDoSprintRepository } from '../../../domain/repositories/TarefasDoSprintRepository'
 import type { ID } from '../../../shared/types/common'
+import type { Database } from '../database.types'
 
 /**
- * Ainda não há vínculo tarefa↔sprint (entrada/saída do sprint é a #69) nem conclusão
- * (#70, `concluida_em`): por ora nenhuma tarefa está no sprint e o placar só tem rotina.
- * Quando #69/#70 chegarem, é aqui que a leitura real entra (com `atrasada` calculada e
- * `superTask` da #65); o placar e a rota não mudam.
+ * Tarefas vinculadas ao sprint (`sprint_id`, #69). Conclusão e atraso são da #70 (sem coluna
+ * ainda: toda tarefa vale como não concluída) e super task é da #65: por isso `concluida`,
+ * `atrasada` e `superTask` saem fixos em `false`. Quando essas issues chegarem, só o mapeamento muda.
  */
 export class SupabaseTarefasDoSprintRepository implements TarefasDoSprintRepository {
-  constructor(readonly client: SupabaseClient) {}
+  constructor(private readonly client: SupabaseClient<Database>) {}
 
-  async listar(_userId: ID, _sprintId: ID, _inicio: string, _fim: string): Promise<TarefaDoSprint[]> {
-    return []
+  async listar(userId: ID, sprintId: ID, inicio: string, fim: string): Promise<TarefaDoSprint[]> {
+    const { data, error } = await this.client
+      .from('tarefas')
+      .select('id, dia, tempo_estimado_minutos, dificuldade, prioridade')
+      .eq('user_id', userId)
+      .eq('sprint_id', sprintId)
+      .gte('dia', inicio)
+      .lte('dia', fim)
+      .is('arquivada_em', null)
+
+    if (error) throw error
+    return data.flatMap((row) => {
+      // Defesa: uma linha sem os campos de pontuação não tem como ser pontuada.
+      if (!row.dia || !row.tempo_estimado_minutos || !row.dificuldade || !row.prioridade) return []
+      return [
+        {
+          id: row.id,
+          dia: row.dia,
+          tempoEstimado: row.tempo_estimado_minutos as TempoEstimado,
+          dificuldade: row.dificuldade as Dificuldade,
+          prioridade: row.prioridade as Prioridade,
+          concluida: false,
+          atrasada: false,
+          superTask: false,
+        },
+      ]
+    })
   }
 }

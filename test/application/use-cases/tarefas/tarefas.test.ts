@@ -10,7 +10,7 @@ import { RemoverTarefa } from '../../../../src/application/use-cases/tarefas/Rem
 import type { Area } from '../../../../src/domain/entities/Area'
 import type { Tarefa, TarefaEdicao } from '../../../../src/domain/entities/Tarefa'
 import { NotFoundError, ValidationError } from '../../../../src/domain/errors/DomainError'
-import { criarAreaRepositoryFake, criarTarefaRepositoryFake } from '../../../helpers/repositoriosFake'
+import { criarAreaRepositoryFake, criarSprintRepositoryFake, criarTarefaRepositoryFake } from '../../../helpers/repositoriosFake'
 
 const USER_ID = 'user-1'
 const EDICAO: TarefaEdicao = {
@@ -26,6 +26,7 @@ const TAREFA: Tarefa = {
   id: 'tar-1',
   areaId: 'area-1',
   ...EDICAO,
+  sprintId: null,
   arquivada: false,
   arquivadaEm: null,
   criadoEm: '2026-01-01T00:00:00.000Z',
@@ -57,7 +58,7 @@ describe('CriarTarefa', () => {
     areas.buscarPorId.mockResolvedValue(AREA)
     tarefas.criar.mockResolvedValue(TAREFA)
 
-    await expect(new CriarTarefa(tarefas, areas).execute(USER_ID, payload)).resolves.toBe(TAREFA)
+    await expect(new CriarTarefa(tarefas, areas, criarSprintRepositoryFake()).execute(USER_ID, payload)).resolves.toBe(TAREFA)
     expect(areas.buscarPorId).toHaveBeenCalledWith(USER_ID, 'area-1')
     expect(tarefas.criar).toHaveBeenCalledWith(USER_ID, payload)
   })
@@ -67,7 +68,7 @@ describe('CriarTarefa', () => {
     const areas = criarAreaRepositoryFake()
     areas.buscarPorId.mockResolvedValue(null)
 
-    await expect(new CriarTarefa(tarefas, areas).execute(USER_ID, payload)).rejects.toBeInstanceOf(NotFoundError)
+    await expect(new CriarTarefa(tarefas, areas, criarSprintRepositoryFake()).execute(USER_ID, payload)).rejects.toBeInstanceOf(NotFoundError)
     expect(tarefas.criar).not.toHaveBeenCalled()
   })
 
@@ -76,7 +77,7 @@ describe('CriarTarefa', () => {
     const areas = criarAreaRepositoryFake()
     areas.buscarPorId.mockResolvedValue(ROTINA)
 
-    await expect(new CriarTarefa(tarefas, areas).execute(USER_ID, payload)).rejects.toBeInstanceOf(ValidationError)
+    await expect(new CriarTarefa(tarefas, areas, criarSprintRepositoryFake()).execute(USER_ID, payload)).rejects.toBeInstanceOf(ValidationError)
     expect(tarefas.criar).not.toHaveBeenCalled()
   })
 })
@@ -87,7 +88,7 @@ describe('AtualizarTarefa', () => {
     repositorio.buscarPorId.mockResolvedValue(TAREFA)
     repositorio.atualizar.mockResolvedValue(TAREFA)
 
-    await expect(new AtualizarTarefa(repositorio).execute(USER_ID, 'tar-1', EDICAO)).resolves.toBe(TAREFA)
+    await expect(new AtualizarTarefa(repositorio, criarSprintRepositoryFake()).execute(USER_ID, 'tar-1', EDICAO)).resolves.toBe(TAREFA)
     expect(repositorio.atualizar).toHaveBeenCalledWith(USER_ID, 'tar-1', EDICAO)
   })
 
@@ -95,7 +96,7 @@ describe('AtualizarTarefa', () => {
     const repositorio = criarTarefaRepositoryFake()
     repositorio.buscarPorId.mockResolvedValue(null)
 
-    await expect(new AtualizarTarefa(repositorio).execute(USER_ID, 'x', EDICAO)).rejects.toBeInstanceOf(NotFoundError)
+    await expect(new AtualizarTarefa(repositorio, criarSprintRepositoryFake()).execute(USER_ID, 'x', EDICAO)).rejects.toBeInstanceOf(NotFoundError)
     expect(repositorio.atualizar).not.toHaveBeenCalled()
   })
 })

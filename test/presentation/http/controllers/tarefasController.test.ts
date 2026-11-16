@@ -6,6 +6,7 @@ import { USUARIO, criarRequisicao, criarResposta } from '../../../helpers/http'
 const m = vi.hoisted(() => ({
   RepositorioTarefa: vi.fn(function (client: unknown) { return { repositorio: 'tarefas', client } }),
   RepositorioArea: vi.fn(function (client: unknown) { return { repositorio: 'areas', client } }),
+  RepositorioSprint: vi.fn(function (client: unknown) { return { repositorio: 'sprints', client } }),
   listar: vi.fn(),
   criar: vi.fn(),
   atualizar: vi.fn(),
@@ -23,6 +24,7 @@ const m = vi.hoisted(() => ({
 }))
 
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseTarefaRepository', () => ({ SupabaseTarefaRepository: m.RepositorioTarefa }))
+vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseSprintRepository', () => ({ SupabaseSprintRepository: m.RepositorioSprint }))
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseAreaRepository', () => ({ SupabaseAreaRepository: m.RepositorioArea }))
 vi.mock('../../../../src/application/use-cases/tarefas/ListarTarefas', () => ({ ListarTarefas: m.ListarTarefas }))
 vi.mock('../../../../src/application/use-cases/tarefas/CriarTarefa', () => ({ CriarTarefa: m.CriarTarefa }))
@@ -65,7 +67,11 @@ describe('tarefasController', () => {
 
     await tarefasController.criar(req, res)
 
-    expect(m.CriarTarefa).toHaveBeenCalledWith(m.RepositorioTarefa.mock.results[0]!.value, m.RepositorioArea.mock.results[0]!.value)
+    expect(m.CriarTarefa).toHaveBeenCalledWith(
+      m.RepositorioTarefa.mock.results[0]!.value,
+      m.RepositorioArea.mock.results[0]!.value,
+      m.RepositorioSprint.mock.results[0]!.value,
+    )
     expect(m.RepositorioArea).toHaveBeenCalledWith(req.supabase)
     expect(m.criar).toHaveBeenCalledWith(USUARIO.id, body)
     expect(res.status).toHaveBeenCalledWith(201)
@@ -79,6 +85,7 @@ describe('tarefasController', () => {
 
     await tarefasController.atualizar(criarRequisicao({ body, params: { id: 't' } }), res)
 
+    expect(m.AtualizarTarefa).toHaveBeenCalledWith(m.RepositorioTarefa.mock.results[0]!.value, m.RepositorioSprint.mock.results[0]!.value)
     expect(m.atualizar).toHaveBeenCalledWith(USUARIO.id, 't', body)
     expect(res.json).toHaveBeenCalledWith({ id: 't' })
   })

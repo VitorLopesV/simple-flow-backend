@@ -1,12 +1,17 @@
-import { NotFoundError } from '../../../domain/errors/DomainError'
+import { ConflictError, NotFoundError } from '../../../domain/errors/DomainError'
 import type { TarefaRepository } from '../../../domain/repositories/TarefaRepository'
+import { MENSAGEM_TAREFA_TRAVADA, tarefaTravada } from '../../../domain/services/sprintDaTarefa'
 import type { ID } from '../../../shared/types/common'
+import { dataAtual } from '../../../shared/utils/periodo'
 
 export class RemoverTarefa {
   constructor(private readonly tarefaRepository: TarefaRepository) {}
 
-  async execute(userId: ID, id: ID): Promise<void> {
-    if (!(await this.tarefaRepository.buscarPorId(userId, id))) throw new NotFoundError('Tarefa')
+  /** Tarefa de dia que já passou no sprint não some: só pode ser concluída. */
+  async execute(userId: ID, id: ID, agora: Date = new Date()): Promise<void> {
+    const tarefa = await this.tarefaRepository.buscarPorId(userId, id)
+    if (!tarefa) throw new NotFoundError('Tarefa')
+    if (tarefaTravada(tarefa, dataAtual(agora))) throw new ConflictError(MENSAGEM_TAREFA_TRAVADA)
     await this.tarefaRepository.remover(userId, id)
   }
 }

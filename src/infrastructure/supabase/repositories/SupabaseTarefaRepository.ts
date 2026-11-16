@@ -28,6 +28,7 @@ function paraTarefa(row: TarefaRow): Tarefa {
     dificuldade: row.dificuldade as Dificuldade | null,
     prioridade: row.prioridade as Prioridade | null,
     notas: row.notas,
+    sprintId: row.sprint_id,
     arquivada: row.arquivada_em !== null,
     arquivadaEm: row.arquivada_em,
     criadoEm: row.criado_em,
@@ -72,10 +73,10 @@ export class SupabaseTarefaRepository implements TarefaRepository {
     return data ? paraTarefa(data) : null
   }
 
-  async criar(userId: ID, payload: TarefaPayload): Promise<Tarefa> {
+  async criar(userId: ID, payload: TarefaPayload, sprintId?: ID): Promise<Tarefa> {
     const { data, error } = await this.supabase
       .from('tarefas')
-      .insert({ ...paraLinha(payload), area_id: payload.areaId, user_id: userId })
+      .insert({ ...paraLinha(payload), area_id: payload.areaId, user_id: userId, sprint_id: sprintId ?? null })
       .select('*')
       .single()
 
@@ -83,8 +84,15 @@ export class SupabaseTarefaRepository implements TarefaRepository {
     return paraTarefa(data)
   }
 
-  async atualizar(userId: ID, id: ID, edicao: TarefaEdicao): Promise<Tarefa> {
-    return this.alterar(userId, id, paraLinha(edicao))
+  async atualizar(userId: ID, id: ID, edicao: TarefaEdicao, sprintId?: ID | null): Promise<Tarefa> {
+    return this.alterar(userId, id, sprintId === undefined ? paraLinha(edicao) : { ...paraLinha(edicao), sprint_id: sprintId })
+  }
+
+  async definirSprint(userId: ID, id: ID, vinculo: { sprintId: ID | null; dia?: string }): Promise<Tarefa> {
+    return this.alterar(userId, id, {
+      sprint_id: vinculo.sprintId,
+      ...(vinculo.dia === undefined ? {} : { dia: vinculo.dia }),
+    })
   }
 
   async mover(userId: ID, id: ID, areaId: ID): Promise<Tarefa> {
