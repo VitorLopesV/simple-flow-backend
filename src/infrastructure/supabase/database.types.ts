@@ -369,6 +369,54 @@ export type Database = {
           },
         ]
       }
+      tarefas: {
+        Row: {
+          area_id: string
+          arquivada_em: string | null
+          atualizado_em: string
+          criado_em: string
+          dia: string | null
+          dificuldade: string | null
+          hora: string | null
+          id: string
+          notas: string | null
+          prioridade: string | null
+          tempo_estimado_minutos: number | null
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          area_id: string
+          arquivada_em?: string | null
+          atualizado_em?: string
+          criado_em?: string
+          dia?: string | null
+          dificuldade?: string | null
+          hora?: string | null
+          id?: string
+          notas?: string | null
+          prioridade?: string | null
+          tempo_estimado_minutos?: number | null
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          area_id?: string
+          arquivada_em?: string | null
+          atualizado_em?: string
+          criado_em?: string
+          dia?: string | null
+          dificuldade?: string | null
+          hora?: string | null
+          id?: string
+          notas?: string | null
+          prioridade?: string | null
+          tempo_estimado_minutos?: number | null
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       transacoes_cartao: {
         Row: {
           atualizado_em: string
