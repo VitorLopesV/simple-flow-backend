@@ -18,6 +18,7 @@ const TAREFA = {
   dificuldade: null,
   prioridade: null,
   notas: null,
+  sprintId: null,
   arquivada: false,
   arquivadaEm: null,
   criadoEm: '2026-01-01T00:00:00.000Z',
@@ -103,8 +104,48 @@ describe('SupabaseTarefaRepository', () => {
         notas: 'n',
         area_id: ID,
         user_id: USER_ID,
+        sprint_id: null,
       },
     ])
+  })
+
+  it('criar: grava o sprint quando a criação já entra nele', async () => {
+    const { fake, repositorio } = montar({ tarefas: [ok(linhaTarefa({ sprint_id: 'spr-1' }))] })
+
+    await expect(repositorio.criar(USER_ID, { ...EDICAO, areaId: ID }, 'spr-1')).resolves.toEqual({ ...TAREFA, sprintId: 'spr-1' })
+    expect(argumentos(fake.consultas[0]!, 'insert')![0]).toMatchObject({ sprint_id: 'spr-1', user_id: USER_ID })
+  })
+
+  it('atualizar: com sprintId grava o vínculo junto; null tira do sprint; omitido não mexe', async () => {
+    const { fake, repositorio } = montar({ tarefas: [ok(linhaTarefa()), ok(linhaTarefa()), ok(linhaTarefa())] })
+
+    await repositorio.atualizar(USER_ID, ID, EDICAO, 'spr-1')
+    await repositorio.atualizar(USER_ID, ID, EDICAO, null)
+    await repositorio.atualizar(USER_ID, ID, EDICAO)
+
+    expect(argumentos(fake.consultas[0]!, 'update')![0]).toMatchObject({ sprint_id: 'spr-1' })
+    expect(argumentos(fake.consultas[1]!, 'update')![0]).toMatchObject({ sprint_id: null })
+    expect(argumentos(fake.consultas[2]!, 'update')![0]).not.toHaveProperty('sprint_id')
+  })
+
+  it('definirSprint: entra com sprint e dia, sempre filtrando por id e user_id', async () => {
+    const { fake, repositorio } = montar({ tarefas: [ok(linhaTarefa({ sprint_id: 'spr-1', dia: '2026-11-18' }))] })
+
+    await expect(repositorio.definirSprint(USER_ID, ID, { sprintId: 'spr-1', dia: '2026-11-18' })).resolves.toMatchObject({
+      sprintId: 'spr-1',
+      dia: '2026-11-18',
+    })
+    const consulta = fake.consultas[0]!
+    expect(argumentos(consulta, 'update')).toEqual([{ sprint_id: 'spr-1', dia: '2026-11-18' }])
+    expect(consulta.chamadas).toContainEqual(['eq', 'id', ID])
+    expect(consulta.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+  })
+
+  it('definirSprint: sair do sprint não mexe no dia', async () => {
+    const { fake, repositorio } = montar({ tarefas: [ok(linhaTarefa())] })
+
+    await repositorio.definirSprint(USER_ID, ID, { sprintId: null })
+    expect(argumentos(fake.consultas[0]!, 'update')).toEqual([{ sprint_id: null }])
   })
 
   it('criar: propaga o erro do banco', async () => {

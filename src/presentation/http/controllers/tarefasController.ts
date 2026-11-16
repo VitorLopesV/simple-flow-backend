@@ -8,10 +8,15 @@ import { ListarTarefas } from '../../../application/use-cases/tarefas/ListarTare
 import { MoverTarefa } from '../../../application/use-cases/tarefas/MoverTarefa'
 import { RemoverTarefa } from '../../../application/use-cases/tarefas/RemoverTarefa'
 import { SupabaseAreaRepository } from '../../../infrastructure/supabase/repositories/SupabaseAreaRepository'
+import { SupabaseSprintRepository } from '../../../infrastructure/supabase/repositories/SupabaseSprintRepository'
 import { SupabaseTarefaRepository } from '../../../infrastructure/supabase/repositories/SupabaseTarefaRepository'
 
 function tarefaRepositorio(req: Request) {
   return new SupabaseTarefaRepository(req.supabase!)
+}
+
+function sprintRepositorio(req: Request) {
+  return new SupabaseSprintRepository(req.supabase!)
 }
 
 function areaRepositorio(req: Request) {
@@ -30,7 +35,7 @@ export const tarefasController = {
   },
 
   async criar(req: Request, res: Response) {
-    const tarefa = await new CriarTarefa(tarefaRepositorio(req), areaRepositorio(req)).execute(
+    const tarefa = await new CriarTarefa(tarefaRepositorio(req), areaRepositorio(req), sprintRepositorio(req)).execute(
       req.usuario!.id,
       req.body,
     )
@@ -38,7 +43,11 @@ export const tarefasController = {
   },
 
   async atualizar(req: Request, res: Response) {
-    const tarefa = await new AtualizarTarefa(tarefaRepositorio(req)).execute(req.usuario!.id, req.params.id, req.body)
+    const tarefa = await new AtualizarTarefa(tarefaRepositorio(req), sprintRepositorio(req)).execute(
+      req.usuario!.id,
+      req.params.id,
+      req.body,
+    )
     res.json(tarefa)
   },
 

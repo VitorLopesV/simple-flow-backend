@@ -178,6 +178,7 @@ export function linhaTarefa(sobrescritas: Partial<TarefaRow> = {}): TarefaRow {
     dificuldade: null,
     prioridade: null,
     notas: null,
+    sprint_id: null,
     arquivada_em: null,
     criado_em: '2026-01-01T00:00:00.000Z',
     atualizado_em: '2026-01-01T00:00:00.000Z',

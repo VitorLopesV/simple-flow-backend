@@ -1,10 +1,14 @@
 import type { Request, Response } from 'express'
 
+import { AdicionarTarefaAoSprint } from '../../../application/use-cases/sprints/AdicionarTarefaAoSprint'
+import { MoverTarefaNoSprint } from '../../../application/use-cases/sprints/MoverTarefaNoSprint'
 import { ObterPlacarDoSprint } from '../../../application/use-cases/sprints/ObterPlacarDoSprint'
 import { ObterSprint } from '../../../application/use-cases/sprints/ObterSprint'
+import { RemoverTarefaDoSprint } from '../../../application/use-cases/sprints/RemoverTarefaDoSprint'
 import { SupabaseItemRotinaRepository } from '../../../infrastructure/supabase/repositories/SupabaseItemRotinaRepository'
 import { SupabaseOcorrenciaRotinaRepository } from '../../../infrastructure/supabase/repositories/SupabaseOcorrenciaRotinaRepository'
 import { SupabaseSprintRepository } from '../../../infrastructure/supabase/repositories/SupabaseSprintRepository'
+import { SupabaseTarefaRepository } from '../../../infrastructure/supabase/repositories/SupabaseTarefaRepository'
 import { SupabaseTarefasDoSprintRepository } from '../../../infrastructure/supabase/repositories/SupabaseTarefasDoSprintRepository'
 
 function obterSprint(req: Request) {
@@ -17,6 +21,14 @@ function obterSprint(req: Request) {
 
 function obterPlacar(req: Request) {
   return new ObterPlacarDoSprint(obterSprint(req), new SupabaseTarefasDoSprintRepository(req.supabase!))
+}
+
+function tarefaRepositorio(req: Request) {
+  return new SupabaseTarefaRepository(req.supabase!)
+}
+
+function sprintRepositorio(req: Request) {
+  return new SupabaseSprintRepository(req.supabase!)
 }
 
 export const sprintsController = {
@@ -34,5 +46,28 @@ export const sprintsController = {
 
   async proximo(req: Request, res: Response) {
     res.json(await obterSprint(req).execute(req.usuario!.id, 'PROXIMO'))
+  },
+
+  async adicionarTarefa(req: Request, res: Response) {
+    const { tarefaId, dia } = req.body
+    const tarefa = await new AdicionarTarefaAoSprint(tarefaRepositorio(req), sprintRepositorio(req)).execute(
+      req.usuario!.id,
+      tarefaId,
+      dia,
+    )
+    res.status(201).json(tarefa)
+  },
+
+  async moverTarefa(req: Request, res: Response) {
+    const tarefa = await new MoverTarefaNoSprint(tarefaRepositorio(req), sprintRepositorio(req)).execute(
+      req.usuario!.id,
+      req.params.id,
+      req.body.dia,
+    )
+    res.json(tarefa)
+  },
+
+  async removerTarefa(req: Request, res: Response) {
+    res.json(await new RemoverTarefaDoSprint(tarefaRepositorio(req)).execute(req.usuario!.id, req.params.id))
   },
 }

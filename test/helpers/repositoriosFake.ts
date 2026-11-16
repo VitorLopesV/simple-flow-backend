@@ -81,6 +81,7 @@ export function criarTarefaRepositoryFake() {
     buscarPorId: vi.fn(),
     criar: vi.fn(),
     atualizar: vi.fn(),
+    definirSprint: vi.fn(),
     mover: vi.fn(),
     definirArquivamento: vi.fn(),
     remover: vi.fn(),
