@@ -14,6 +14,7 @@ import type { OcorrenciaRotinaRepository } from '../../src/domain/repositories/O
 import type { SprintRepository } from '../../src/domain/repositories/SprintRepository'
 import type { SaidaRepository } from '../../src/domain/repositories/SaidaRepository'
 import type { ItemRotinaRepository } from '../../src/domain/repositories/ItemRotinaRepository'
+import type { SuperTaskRepository } from '../../src/domain/repositories/SuperTaskRepository'
 import type { TarefaRepository } from '../../src/domain/repositories/TarefaRepository'
 
 /**
@@ -86,7 +87,25 @@ export function criarTarefaRepositoryFake() {
     mover: vi.fn(),
     definirArquivamento: vi.fn(),
     remover: vi.fn(),
+    listarDasSuperTasks: vi.fn(),
+    definirSuperTask: vi.fn(),
+    moverDaSuperTask: vi.fn(),
+    soltarDaSuperTask: vi.fn(),
+    removerDaSuperTask: vi.fn(),
   } satisfies TarefaRepository
+}
+
+export function criarSuperTaskRepositoryFake() {
+  return {
+    listar: vi.fn(),
+    buscarPorId: vi.fn(),
+    criar: vi.fn(),
+    atualizar: vi.fn(),
+    mover: vi.fn(),
+    definirConclusao: vi.fn(),
+    definirArquivamento: vi.fn(),
+    remover: vi.fn(),
+  } satisfies SuperTaskRepository
 }
 
 export function criarCartaoRepositoryFake() {

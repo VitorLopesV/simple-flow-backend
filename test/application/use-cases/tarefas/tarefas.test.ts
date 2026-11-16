@@ -10,7 +10,12 @@ import { RemoverTarefa } from '../../../../src/application/use-cases/tarefas/Rem
 import type { Area } from '../../../../src/domain/entities/Area'
 import type { Tarefa, TarefaEdicao } from '../../../../src/domain/entities/Tarefa'
 import { NotFoundError, ValidationError } from '../../../../src/domain/errors/DomainError'
-import { criarAreaRepositoryFake, criarSprintRepositoryFake, criarTarefaRepositoryFake } from '../../../helpers/repositoriosFake'
+import {
+  criarAreaRepositoryFake,
+  criarSprintRepositoryFake,
+  criarSuperTaskRepositoryFake,
+  criarTarefaRepositoryFake,
+} from '../../../helpers/repositoriosFake'
 
 const USER_ID = 'user-1'
 const EDICAO: TarefaEdicao = {
@@ -27,6 +32,7 @@ const TAREFA: Tarefa = {
   areaId: 'area-1',
   ...EDICAO,
   sprintId: null,
+  superTaskId: null,
   concluidaEm: null,
   concluida: false,
   atrasada: false,
@@ -225,7 +231,7 @@ describe('RemoverTarefa', () => {
     repositorio.buscarPorId.mockResolvedValue(TAREFA)
     repositorio.remover.mockResolvedValue(undefined)
 
-    await new RemoverTarefa(repositorio).execute(USER_ID, 'tar-1')
+    await new RemoverTarefa(repositorio, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1')
     expect(repositorio.remover).toHaveBeenCalledWith(USER_ID, 'tar-1')
   })
 
@@ -233,7 +239,7 @@ describe('RemoverTarefa', () => {
     const repositorio = criarTarefaRepositoryFake()
     repositorio.buscarPorId.mockResolvedValue(null)
 
-    await expect(new RemoverTarefa(repositorio).execute(USER_ID, 'x')).rejects.toBeInstanceOf(NotFoundError)
+    await expect(new RemoverTarefa(repositorio, criarSuperTaskRepositoryFake()).execute(USER_ID, 'x')).rejects.toBeInstanceOf(NotFoundError)
     expect(repositorio.remover).not.toHaveBeenCalled()
   })
 })

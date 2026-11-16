@@ -12,7 +12,12 @@ import { RemoverTarefa } from '../../../../src/application/use-cases/tarefas/Rem
 import type { Tarefa, TarefaEdicao } from '../../../../src/domain/entities/Tarefa'
 import { ConflictError, NotFoundError, ValidationError } from '../../../../src/domain/errors/DomainError'
 import { MENSAGEM_TAREFA_TRAVADA } from '../../../../src/domain/services/sprintDaTarefa'
-import { criarAreaRepositoryFake, criarSprintRepositoryFake, criarTarefaRepositoryFake } from '../../../helpers/repositoriosFake'
+import {
+  criarAreaRepositoryFake,
+  criarSprintRepositoryFake,
+  criarSuperTaskRepositoryFake,
+  criarTarefaRepositoryFake,
+} from '../../../helpers/repositoriosFake'
 
 const USER_ID = 'user-1'
 // Quarta 2026-11-18 12:00 em São Paulo. Sprint atual 16–20, próximo 23–27.
@@ -37,6 +42,7 @@ const COMPLETA: Tarefa = {
   prioridade: 'ALTA',
   notas: null,
   sprintId: null,
+  superTaskId: null,
   concluidaEm: null,
   concluida: false,
   atrasada: false,
@@ -329,7 +335,7 @@ describe('travas por dia: a virada 23:59 → 00:00 em São Paulo', () => {
       removerDoSprint: new RemoverTarefaDoSprint(tarefas).execute(USER_ID, 'tar-1', agora),
       mover: new MoverTarefaNoSprint(tarefas, sprints).execute(USER_ID, 'tar-1', '2026-11-20', agora),
       editar: new AtualizarTarefa(tarefas, sprints).execute(USER_ID, 'tar-1', edicaoDe(noSprint(alvo), { titulo: 'Outro' }), agora),
-      excluir: new RemoverTarefa(tarefas).execute(USER_ID, 'tar-1', agora),
+      excluir: new RemoverTarefa(tarefas, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1', agora),
       arquivar: new ArquivarTarefa(tarefas).execute(USER_ID, 'tar-1', agora),
     }
     const entradas = await Promise.all(
@@ -369,7 +375,7 @@ describe('travas por dia: a virada 23:59 → 00:00 em São Paulo', () => {
   it('tarefa fora do sprint com dia passado continua livre (a trava é do compromisso do sprint)', async () => {
     const tarefas = criarTarefaRepositoryFake()
     tarefas.buscarPorId.mockResolvedValue({ ...COMPLETA, dia: alvo })
-    await expect(new RemoverTarefa(tarefas).execute(USER_ID, 'tar-1', QUINTA_00H00)).resolves.toBeUndefined()
+    await expect(new RemoverTarefa(tarefas, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1', QUINTA_00H00)).resolves.toBeUndefined()
   })
 
   it('só o dia que passou trava: o de hoje e os futuros seguem editáveis', async () => {

@@ -18,6 +18,10 @@ export class MoverTarefa {
     if (!tarefa) throw new NotFoundError('Tarefa')
     if (tarefa.concluida) throw new ConflictError(MENSAGEM_TAREFA_CONCLUIDA)
     if (tarefaTravada(tarefa, dataAtual(agora))) throw new ConflictError(MENSAGEM_TAREFA_TRAVADA)
+    // A filha fica na área da Super task; para mudar, mova a Super task (leva as filhas) ou retire a filha dela.
+    if (tarefa.superTaskId && tarefa.areaId !== areaId) {
+      throw new ConflictError('Esta tarefa é filha de uma Super task: mova a Super task ou retire a tarefa dela antes de mudar de área.')
+    }
 
     const destino = await this.areaRepository.buscarPorId(userId, areaId)
     if (!destino) throw new NotFoundError('Área de destino')

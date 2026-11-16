@@ -18,6 +18,7 @@ import {
   criarAreaRepositoryFake,
   criarOcorrenciaRotinaRepositoryFake,
   criarSprintRepositoryFake,
+  criarSuperTaskRepositoryFake,
   criarTarefaRepositoryFake,
 } from '../../helpers/repositoriosFake'
 
@@ -37,6 +38,7 @@ const TAREFA: Tarefa = {
   prioridade: 'ALTA',
   notas: null,
   sprintId: null,
+  superTaskId: null,
   concluidaEm: null,
   concluida: false,
   atrasada: false,
@@ -68,7 +70,7 @@ describe('ConcluirTarefa', () => {
   it('grava a conclusão com o instante atual em ISO', async () => {
     const { tarefas, sprints } = montarTarefa({ ...TAREFA, dia: '2026-11-18', sprintId: 'spr-1' })
 
-    const resultado = await new ConcluirTarefa(tarefas, sprints).execute(USER_ID, 'tar-1', QUARTA)
+    const resultado = await new ConcluirTarefa(tarefas, sprints, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1', QUARTA)
 
     expect(tarefas.concluir).toHaveBeenCalledWith(USER_ID, 'tar-1', '2026-11-18T15:00:00.000Z')
     expect(resultado.concluida).toBe(true)
@@ -78,7 +80,7 @@ describe('ConcluirTarefa', () => {
   it('concluir num dia útil uma tarefa fora do sprint a puxa para o sprint atual, com dia = hoje, antes de gravar', async () => {
     const { tarefas, sprints } = montarTarefa({ ...TAREFA, dia: '2026-11-10' })
 
-    await new ConcluirTarefa(tarefas, sprints).execute(USER_ID, 'tar-1', QUARTA)
+    await new ConcluirTarefa(tarefas, sprints, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1', QUARTA)
 
     expect(sprints.garantir).toHaveBeenCalledWith(USER_ID, '2026-11-16', '2026-11-20')
     expect(tarefas.definirSprint).toHaveBeenCalledWith(USER_ID, 'tar-1', { sprintId: 'spr-1', dia: '2026-11-18' })
@@ -88,7 +90,7 @@ describe('ConcluirTarefa', () => {
   it('no fim de semana conclui sem entrar no sprint', async () => {
     const { tarefas, sprints } = montarTarefa({ ...TAREFA })
 
-    await new ConcluirTarefa(tarefas, sprints).execute(USER_ID, 'tar-1', SABADO)
+    await new ConcluirTarefa(tarefas, sprints, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1', SABADO)
 
     expect(tarefas.definirSprint).not.toHaveBeenCalled()
     expect(tarefas.concluir).toHaveBeenCalled()
@@ -97,7 +99,7 @@ describe('ConcluirTarefa', () => {
   it('sem pontuação completa conclui sem entrar no sprint', async () => {
     const { tarefas, sprints } = montarTarefa({ ...TAREFA, tempoEstimado: null })
 
-    await new ConcluirTarefa(tarefas, sprints).execute(USER_ID, 'tar-1', QUARTA)
+    await new ConcluirTarefa(tarefas, sprints, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1', QUARTA)
 
     expect(tarefas.definirSprint).not.toHaveBeenCalled()
     expect(tarefas.concluir).toHaveBeenCalled()
@@ -106,23 +108,23 @@ describe('ConcluirTarefa', () => {
   it('dia que já passou, dentro do sprint, pode ser concluído (a trava só permite concluir)', async () => {
     const { tarefas, sprints } = montarTarefa({ ...TAREFA, dia: '2026-11-16', sprintId: 'spr-1' })
 
-    await new ConcluirTarefa(tarefas, sprints).execute(USER_ID, 'tar-1', QUARTA)
+    await new ConcluirTarefa(tarefas, sprints, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1', QUARTA)
     expect(tarefas.concluir).toHaveBeenCalled()
   })
 
   it('já concluída: devolve a tarefa sem mudar o instante', async () => {
     const { tarefas, sprints } = montarTarefa(CONCLUIDA)
 
-    await expect(new ConcluirTarefa(tarefas, sprints).execute(USER_ID, 'tar-1', QUARTA)).resolves.toBe(CONCLUIDA)
+    await expect(new ConcluirTarefa(tarefas, sprints, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1', QUARTA)).resolves.toBe(CONCLUIDA)
     expect(tarefas.concluir).not.toHaveBeenCalled()
   })
 
   it('recusa tarefa arquivada e tarefa inexistente', async () => {
     const arquivada = montarTarefa({ ...TAREFA, arquivada: true })
-    await expect(new ConcluirTarefa(arquivada.tarefas, arquivada.sprints).execute(USER_ID, 'tar-1', QUARTA)).rejects.toBeInstanceOf(ValidationError)
+    await expect(new ConcluirTarefa(arquivada.tarefas, arquivada.sprints, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1', QUARTA)).rejects.toBeInstanceOf(ValidationError)
 
     const inexistente = montarTarefa(null)
-    await expect(new ConcluirTarefa(inexistente.tarefas, inexistente.sprints).execute(USER_ID, 'x', QUARTA)).rejects.toBeInstanceOf(NotFoundError)
+    await expect(new ConcluirTarefa(inexistente.tarefas, inexistente.sprints, criarSuperTaskRepositoryFake()).execute(USER_ID, 'x', QUARTA)).rejects.toBeInstanceOf(NotFoundError)
   })
 })
 
@@ -150,7 +152,7 @@ describe('tarefa concluída é imutável', () => {
   const casos: [string, (t: ReturnType<typeof montarTarefa>) => Promise<unknown>][] = [
     ['editar', ({ tarefas, sprints }) => new AtualizarTarefa(tarefas, sprints).execute(USER_ID, 'tar-1', edicao, QUARTA)],
     ['mudar de área', ({ tarefas }) => new MoverTarefa(tarefas, criarAreaRepositoryFake()).execute(USER_ID, 'tar-1', 'area-2', QUARTA)],
-    ['excluir', ({ tarefas }) => new RemoverTarefa(tarefas).execute(USER_ID, 'tar-1', QUARTA)],
+    ['excluir', ({ tarefas }) => new RemoverTarefa(tarefas, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1', QUARTA)],
     ['arquivar', ({ tarefas }) => new ArquivarTarefa(tarefas).execute(USER_ID, 'tar-1', QUARTA)],
     ['tirar do sprint', ({ tarefas }) => new RemoverTarefaDoSprint(tarefas).execute(USER_ID, 'tar-1', QUARTA)],
     ['mudar o dia no sprint', ({ tarefas, sprints }) => new MoverTarefaNoSprint(tarefas, sprints).execute(USER_ID, 'tar-1', '2026-11-19', QUARTA)],

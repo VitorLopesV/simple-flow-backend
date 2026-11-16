@@ -19,6 +19,7 @@ const TAREFA = {
   prioridade: null,
   notas: null,
   sprintId: null,
+  superTaskId: null,
   concluidaEm: null,
   concluida: false,
   atrasada: false,
@@ -255,5 +256,66 @@ describe('SupabaseTarefaRepository', () => {
     expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
     await expect(repositorio.remover(USER_ID, ID)).rejects.toBeInstanceOf(NotFoundError)
     await expect(repositorio.remover(USER_ID, ID)).rejects.toBe(ERRO)
+  })
+
+  describe('Super task (#65)', () => {
+    it('mapeia super_task_id para superTaskId', async () => {
+      const { repositorio } = montar({ tarefas: [ok(linhaTarefa({ super_task_id: 'st-1' }))] })
+      await expect(repositorio.buscarPorId(USER_ID, ID)).resolves.toMatchObject({ superTaskId: 'st-1' })
+    })
+
+    it('listarDasSuperTasks: filtra por user_id e pelos ids; lista vazia nem consulta', async () => {
+      const { fake, repositorio } = montar({ tarefas: [ok([linhaTarefa({ super_task_id: 'st-1' })]), falha(ERRO)] })
+
+      await expect(repositorio.listarDasSuperTasks(USER_ID, [])).resolves.toEqual([])
+      expect(fake.consultas).toHaveLength(0)
+
+      const [filha] = await repositorio.listarDasSuperTasks(USER_ID, ['st-1', 'st-2'])
+      expect(filha).toMatchObject({ superTaskId: 'st-1' })
+      expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+      expect(fake.consultas[0]!.chamadas).toContainEqual(['in', 'super_task_id', ['st-1', 'st-2']])
+
+      await expect(repositorio.listarDasSuperTasks(USER_ID, ['st-1'])).rejects.toBe(ERRO)
+    })
+
+    it('definirSuperTask: liga ou solta, filtrando por id e user_id', async () => {
+      const { fake, repositorio } = montar({ tarefas: [ok(linhaTarefa({ super_task_id: 'st-1' })), ok(linhaTarefa())] })
+
+      await repositorio.definirSuperTask(USER_ID, ID, 'st-1')
+      await repositorio.definirSuperTask(USER_ID, ID, null)
+
+      expect(argumentos(fake.consultas[0]!, 'update')).toEqual([{ super_task_id: 'st-1' }])
+      expect(argumentos(fake.consultas[1]!, 'update')).toEqual([{ super_task_id: null }])
+      expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    })
+
+    it('moverDaSuperTask: atualiza area_id só das filhas do usuário; propaga erro', async () => {
+      const { fake, repositorio } = montar({ tarefas: [ok(null), falha(ERRO)] })
+
+      await expect(repositorio.moverDaSuperTask(USER_ID, 'st-1', ID_2)).resolves.toBeUndefined()
+      expect(argumentos(fake.consultas[0]!, 'update')).toEqual([{ area_id: ID_2 }])
+      expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'super_task_id', 'st-1'])
+      expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+      await expect(repositorio.moverDaSuperTask(USER_ID, 'st-1', ID_2)).rejects.toBe(ERRO)
+    })
+
+    it('soltarDaSuperTask: zera super_task_id só das filhas do usuário; propaga erro', async () => {
+      const { fake, repositorio } = montar({ tarefas: [ok(null), falha(ERRO)] })
+
+      await expect(repositorio.soltarDaSuperTask(USER_ID, 'st-1')).resolves.toBeUndefined()
+      expect(argumentos(fake.consultas[0]!, 'update')).toEqual([{ super_task_id: null }])
+      expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+      await expect(repositorio.soltarDaSuperTask(USER_ID, 'st-1')).rejects.toBe(ERRO)
+    })
+
+    it('removerDaSuperTask: apaga só as filhas do usuário; propaga erro', async () => {
+      const { fake, repositorio } = montar({ tarefas: [ok(null), falha(ERRO)] })
+
+      await expect(repositorio.removerDaSuperTask(USER_ID, 'st-1')).resolves.toBeUndefined()
+      expect(usou(fake.consultas[0]!, 'delete')).toBe(true)
+      expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'super_task_id', 'st-1'])
+      expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+      await expect(repositorio.removerDaSuperTask(USER_ID, 'st-1')).rejects.toBe(ERRO)
+    })
   })
 })

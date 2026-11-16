@@ -17,4 +17,14 @@ export interface TarefaRepository {
   /** `null` desarquiva. */
   definirArquivamento(userId: ID, id: ID, arquivadaEm: string | null): Promise<Tarefa>
   remover(userId: ID, id: ID): Promise<void>
+  /** Filhas de uma Super task (#65), inclusive arquivadas e concluídas. */
+  listarDasSuperTasks(userId: ID, superTaskIds: ID[]): Promise<Tarefa[]>
+  /** Liga a tarefa a uma Super task; `null` a solta (volta a ser avulsa). */
+  definirSuperTask(userId: ID, id: ID, superTaskId: ID | null): Promise<Tarefa>
+  /** Move todas as filhas de uma vez (a Super task mudou de área). */
+  moverDaSuperTask(userId: ID, superTaskId: ID, areaId: ID): Promise<void>
+  /** Todas as filhas viram tarefas avulsas, na mesma área. */
+  soltarDaSuperTask(userId: ID, superTaskId: ID): Promise<void>
+  /** Exclui todas as filhas (a opção "excluir junto"). */
+  removerDaSuperTask(userId: ID, superTaskId: ID): Promise<void>
 }

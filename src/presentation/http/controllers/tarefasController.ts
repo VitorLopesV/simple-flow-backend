@@ -10,6 +10,7 @@ import { ListarTarefas } from '../../../application/use-cases/tarefas/ListarTare
 import { MoverTarefa } from '../../../application/use-cases/tarefas/MoverTarefa'
 import { RemoverTarefa } from '../../../application/use-cases/tarefas/RemoverTarefa'
 import { SupabaseAreaRepository } from '../../../infrastructure/supabase/repositories/SupabaseAreaRepository'
+import { SupabaseSuperTaskRepository } from '../../../infrastructure/supabase/repositories/SupabaseSuperTaskRepository'
 import { SupabaseSprintRepository } from '../../../infrastructure/supabase/repositories/SupabaseSprintRepository'
 import { SupabaseTarefaRepository } from '../../../infrastructure/supabase/repositories/SupabaseTarefaRepository'
 
@@ -19,6 +20,10 @@ function tarefaRepositorio(req: Request) {
 
 function sprintRepositorio(req: Request) {
   return new SupabaseSprintRepository(req.supabase!)
+}
+
+function superTaskRepositorio(req: Request) {
+  return new SupabaseSuperTaskRepository(req.supabase!)
 }
 
 function areaRepositorio(req: Request) {
@@ -63,7 +68,8 @@ export const tarefasController = {
   },
 
   async concluir(req: Request, res: Response) {
-    res.json(await new ConcluirTarefa(tarefaRepositorio(req), sprintRepositorio(req)).execute(req.usuario!.id, req.params.id))
+    const concluir = new ConcluirTarefa(tarefaRepositorio(req), sprintRepositorio(req), superTaskRepositorio(req))
+    res.json(await concluir.execute(req.usuario!.id, req.params.id))
   },
 
   async desmarcarConclusao(req: Request, _res: Response) {
@@ -79,7 +85,7 @@ export const tarefasController = {
   },
 
   async remover(req: Request, res: Response) {
-    await new RemoverTarefa(tarefaRepositorio(req)).execute(req.usuario!.id, req.params.id)
+    await new RemoverTarefa(tarefaRepositorio(req), superTaskRepositorio(req)).execute(req.usuario!.id, req.params.id)
     res.status(204).send()
   },
 }

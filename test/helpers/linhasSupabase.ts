@@ -9,6 +9,7 @@ export type EntradaRow = Tabelas['entradas']['Row']
 export type FaturaRow = Tabelas['faturas']['Row']
 export type AtividadeRow = Tabelas['atividades']['Row']
 export type TarefaRow = Tabelas['tarefas']['Row']
+export type SuperTaskRow = Tabelas['super_tasks']['Row']
 export type ItemRotinaRow = Tabelas['itens_rotina']['Row']
 export type SprintRow = Tabelas['sprints']['Row']
 export type OcorrenciaRotinaRow = Tabelas['ocorrencias_rotina']['Row']
@@ -179,8 +180,25 @@ export function linhaTarefa(sobrescritas: Partial<TarefaRow> = {}): TarefaRow {
     prioridade: null,
     notas: null,
     sprint_id: null,
+    super_task_id: null,
     arquivada_em: null,
     concluida_em: null,
+    criado_em: '2026-01-01T00:00:00.000Z',
+    atualizado_em: '2026-01-01T00:00:00.000Z',
+    ...sobrescritas,
+  }
+}
+
+export function linhaSuperTask(sobrescritas: Partial<SuperTaskRow> = {}): SuperTaskRow {
+  return {
+    id: 'st-1',
+    user_id: USER_ID,
+    area_id: 'area-1',
+    titulo: 'Pintar a casa',
+    notas: null,
+    data_termino: null,
+    concluida_em: null,
+    arquivada_em: null,
     criado_em: '2026-01-01T00:00:00.000Z',
     atualizado_em: '2026-01-01T00:00:00.000Z',
     ...sobrescritas,

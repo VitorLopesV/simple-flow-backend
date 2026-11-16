@@ -118,7 +118,16 @@ export class SupabaseAreaRepository implements AreaRepository {
       if (tabelaTarefasAusente(error)) return 0
       throw error
     }
-    return count ?? 0
+
+    // A Super task (#65) também fica numa área e conta: a área só sai com uma escolha explícita.
+    const superTasks = await this.supabase
+      .from('super_tasks')
+      .select('id', { count: 'exact', head: true })
+      .eq('area_id', areaId)
+      .eq('user_id', userId)
+
+    if (superTasks.error) throw superTasks.error
+    return (count ?? 0) + (superTasks.count ?? 0)
   }
 
   async moverTarefas(userId: ID, deAreaId: ID, paraAreaId: ID): Promise<void> {
@@ -128,11 +137,25 @@ export class SupabaseAreaRepository implements AreaRepository {
       .eq('user_id', userId)
 
     if (error) throw error
+
+    // As filhas são tarefas da mesma área e já foram movidas acima; a Super task acompanha.
+    const superTasks = await this.supabase
+      .from('super_tasks')
+      .update({ area_id: paraAreaId })
+      .eq('area_id', deAreaId)
+      .eq('user_id', userId)
+
+    if (superTasks.error) throw superTasks.error
   }
 
   async removerTarefas(userId: ID, areaId: ID): Promise<void> {
     const { error } = await this.tarefas.delete().eq('area_id', areaId).eq('user_id', userId)
 
     if (error) throw error
+
+    // As filhas saíram junto com as tarefas da área; falta a própria Super task.
+    const superTasks = await this.supabase.from('super_tasks').delete().eq('area_id', areaId).eq('user_id', userId)
+
+    if (superTasks.error) throw superTasks.error
   }
 }

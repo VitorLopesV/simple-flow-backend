@@ -12,6 +12,7 @@ import { navegacaoRoutes } from './navegacao.routes'
 import { rotinasRoutes } from './rotinas.routes'
 import { saidasRoutes } from './saidas.routes'
 import { sprintsRoutes } from './sprints.routes'
+import { superTasksRoutes } from './superTasks.routes'
 import { tarefasRoutes } from './tarefas.routes'
 
 export const routes = Router()
@@ -22,6 +23,7 @@ routes.use('/auth', authRoutes)
 routes.use('/areas', areasRoutes)
 routes.use('/categorias', categoriasRoutes)
 routes.use('/tarefas', tarefasRoutes)
+routes.use('/super-tasks', superTasksRoutes)
 routes.use('/rotinas', rotinasRoutes)
 routes.use('/sprints', sprintsRoutes)
 routes.use('/entradas', entradasRoutes)
