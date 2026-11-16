@@ -10,3 +10,5 @@ sprintsRoutes.use(authMiddleware)
 
 sprintsRoutes.get('/atual', asyncHandler(sprintsController.atual))
 sprintsRoutes.get('/proximo', asyncHandler(sprintsController.proximo))
+sprintsRoutes.get('/atual/placar', asyncHandler(sprintsController.placarAtual))
+sprintsRoutes.get('/proximo/placar', asyncHandler(sprintsController.placarProximo))

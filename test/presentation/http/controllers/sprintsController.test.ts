@@ -9,17 +9,23 @@ const m = vi.hoisted(() => ({
   RepositorioItem: vi.fn(function (client: unknown) { return { repositorio: 'itens', client } }),
   execute: vi.fn(),
   ObterSprint: vi.fn(),
+  RepositorioTarefas: vi.fn(function (client: unknown) { return { repositorio: 'tarefas', client } }),
+  executePlacar: vi.fn(),
+  ObterPlacar: vi.fn(),
 }))
 
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseSprintRepository', () => ({ SupabaseSprintRepository: m.RepositorioSprint }))
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseOcorrenciaRotinaRepository', () => ({ SupabaseOcorrenciaRotinaRepository: m.RepositorioOcorrencia }))
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseItemRotinaRepository', () => ({ SupabaseItemRotinaRepository: m.RepositorioItem }))
+vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseTarefasDoSprintRepository', () => ({ SupabaseTarefasDoSprintRepository: m.RepositorioTarefas }))
+vi.mock('../../../../src/application/use-cases/sprints/ObterPlacarDoSprint', () => ({ ObterPlacarDoSprint: m.ObterPlacar }))
 vi.mock('../../../../src/application/use-cases/sprints/ObterSprint', () => ({ ObterSprint: m.ObterSprint }))
 
 describe('sprintsController', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     m.ObterSprint.mockImplementation(function () { return { execute: m.execute } })
+    m.ObterPlacar.mockImplementation(function () { return { execute: m.executePlacar } })
   })
 
   it.each([
@@ -51,5 +57,21 @@ describe('sprintsController', () => {
 
     await expect(sprintsController.atual(criarRequisicao(), res)).rejects.toBe(erro)
     expect(res.json).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['placarAtual', 'ATUAL'],
+    ['placarProximo', 'PROXIMO'],
+  ] as const)('%s: compõe o placar com o sprint e as tarefas e responde o resultado', async (acao, alvo) => {
+    m.executePlacar.mockResolvedValue({ placar: { total: 0 } })
+    const req = criarRequisicao()
+    const res = criarResposta()
+
+    await sprintsController[acao](req, res)
+
+    expect(m.RepositorioTarefas).toHaveBeenCalledWith(req.supabase)
+    expect(m.ObterPlacar).toHaveBeenCalledWith(expect.objectContaining({ execute: m.execute }), m.RepositorioTarefas.mock.results[0]!.value)
+    expect(m.executePlacar).toHaveBeenCalledWith(USUARIO.id, alvo)
+    expect(res.json).toHaveBeenCalledWith({ placar: { total: 0 } })
   })
 })
