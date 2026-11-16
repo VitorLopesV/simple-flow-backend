@@ -31,6 +31,7 @@ const m = vi.hoisted(() => {
     auth: controller('auth', ['registrar', 'login', 'refresh', 'me', 'atualizarPerfil']),
     areas: controller('areas', ['listar', 'criar', 'atualizar', 'remover']),
     tarefas: controller('tarefas', ['listar', 'criar', 'atualizar', 'mover', 'arquivar', 'desarquivar', 'remover', 'concluir', 'desmarcarConclusao']),
+    superTasks: controller('superTasks', ['listar', 'obter', 'criar', 'converter', 'atualizar', 'mover', 'concluir', 'desmarcarConclusao', 'arquivar', 'desarquivar', 'remover', 'adicionarFilha', 'retirarFilha']),
     rotinas: controller('rotinas', ['listar', 'criar', 'atualizar', 'remover']),
     sprints: controller('sprints', ['atual', 'proximo', 'placarAtual', 'placarProximo', 'adicionarTarefa', 'moverTarefa', 'removerTarefa', 'concluirOcorrencia']),
     categorias: controller('categorias', ['listar']),
@@ -63,6 +64,7 @@ vi.mock('../../../../src/infrastructure/supabase/supabaseClientForRequest', () =
 vi.mock('../../../../src/presentation/http/controllers/authController', () => ({ authController: m.auth }))
 vi.mock('../../../../src/presentation/http/controllers/areasController', () => ({ areasController: m.areas }))
 vi.mock('../../../../src/presentation/http/controllers/tarefasController', () => ({ tarefasController: m.tarefas }))
+vi.mock('../../../../src/presentation/http/controllers/superTasksController', () => ({ superTasksController: m.superTasks }))
 vi.mock('../../../../src/presentation/http/controllers/rotinasController', () => ({ rotinasController: m.rotinas }))
 vi.mock('../../../../src/presentation/http/controllers/sprintsController', () => ({ sprintsController: m.sprints }))
 vi.mock('../../../../src/presentation/http/controllers/categoriasController', () => ({ categoriasController: m.categorias }))
@@ -164,6 +166,21 @@ const ROTAS_PROTEGIDAS: Rota[] = [
   { metodo: 'PATCH', caminho: `/api/tarefas/${UUID}/arquivar`, acao: 'tarefas.arquivar' },
   { metodo: 'PATCH', caminho: `/api/tarefas/${UUID}/desarquivar`, acao: 'tarefas.desarquivar' },
   { metodo: 'DELETE', caminho: `/api/tarefas/${UUID}`, acao: 'tarefas.remover' },
+  { metodo: 'GET', caminho: '/api/super-tasks', acao: 'superTasks.listar' },
+  { metodo: 'GET', caminho: `/api/super-tasks?areaId=${UUID}&arquivadas=true`, acao: 'superTasks.listar' },
+  { metodo: 'GET', caminho: `/api/super-tasks/${UUID}`, acao: 'superTasks.obter' },
+  { metodo: 'POST', caminho: '/api/super-tasks', acao: 'superTasks.criar', body: { titulo: 'TCC', areaId: UUID } },
+  { metodo: 'POST', caminho: '/api/super-tasks/converter', acao: 'superTasks.converter', body: { tarefaId: UUID, dataTermino: '2026-12-20' } },
+  { metodo: 'PUT', caminho: `/api/super-tasks/${UUID}`, acao: 'superTasks.atualizar', body: { titulo: 'TCC' } },
+  { metodo: 'PATCH', caminho: `/api/super-tasks/${UUID}/area`, acao: 'superTasks.mover', body: { areaId: UUID_2 } },
+  { metodo: 'PATCH', caminho: `/api/super-tasks/${UUID}/concluir`, acao: 'superTasks.concluir' },
+  { metodo: 'DELETE', caminho: `/api/super-tasks/${UUID}/conclusao`, acao: 'superTasks.desmarcarConclusao' },
+  { metodo: 'PATCH', caminho: `/api/super-tasks/${UUID}/arquivar`, acao: 'superTasks.arquivar' },
+  { metodo: 'PATCH', caminho: `/api/super-tasks/${UUID}/desarquivar`, acao: 'superTasks.desarquivar' },
+  { metodo: 'DELETE', caminho: `/api/super-tasks/${UUID}`, acao: 'superTasks.remover' },
+  { metodo: 'DELETE', caminho: `/api/super-tasks/${UUID}?filhas=excluir`, acao: 'superTasks.remover' },
+  { metodo: 'POST', caminho: `/api/super-tasks/${UUID}/tarefas`, acao: 'superTasks.adicionarFilha', body: { tarefaId: UUID_2 } },
+  { metodo: 'DELETE', caminho: `/api/super-tasks/${UUID}/tarefas/${UUID_2}`, acao: 'superTasks.retirarFilha' },
   { metodo: 'GET', caminho: '/api/rotinas', acao: 'rotinas.listar' },
   { metodo: 'POST', caminho: '/api/rotinas', acao: 'rotinas.criar', body: ROTINA },
   { metodo: 'PUT', caminho: `/api/rotinas/${UUID}`, acao: 'rotinas.atualizar', body: ROTINA },
@@ -229,6 +246,19 @@ const ENTRADAS_INVALIDAS: (Omit<Rota, 'acao'> & { mensagem?: string })[] = [
   { metodo: 'DELETE', caminho: '/api/sprints/tarefas/abc', mensagem: 'Identificador inválido.' },
   { metodo: 'PATCH', caminho: '/api/tarefas/abc/concluir', mensagem: 'Identificador inválido.' },
   { metodo: 'DELETE', caminho: '/api/tarefas/abc/conclusao', mensagem: 'Identificador inválido.' },
+  { metodo: 'POST', caminho: '/api/super-tasks', body: { areaId: UUID }, mensagem: 'Informe o título da Super task.' },
+  { metodo: 'POST', caminho: '/api/super-tasks', body: { titulo: 'x' }, mensagem: 'Área inválida.' },
+  { metodo: 'POST', caminho: '/api/super-tasks', body: { titulo: 'x', areaId: UUID, dataTermino: '20/12' }, mensagem: 'Data de término inválida, use o formato YYYY-MM-DD.' },
+  { metodo: 'POST', caminho: '/api/super-tasks/converter', body: {}, mensagem: 'Tarefa inválida.' },
+  { metodo: 'GET', caminho: '/api/super-tasks/abc', mensagem: 'Identificador inválido.' },
+  { metodo: 'PUT', caminho: '/api/super-tasks/abc', body: { titulo: 'x' }, mensagem: 'Identificador inválido.' },
+  { metodo: 'PATCH', caminho: `/api/super-tasks/${UUID}/area`, body: { areaId: 'x' }, mensagem: 'Área de destino inválida.' },
+  { metodo: 'PATCH', caminho: '/api/super-tasks/abc/concluir', mensagem: 'Identificador inválido.' },
+  { metodo: 'DELETE', caminho: '/api/super-tasks/abc/conclusao', mensagem: 'Identificador inválido.' },
+  { metodo: 'DELETE', caminho: `/api/super-tasks/${UUID}?filhas=talvez`, mensagem: 'Destino das filhas inválido, use soltar ou excluir.' },
+  { metodo: 'POST', caminho: `/api/super-tasks/${UUID}/tarefas`, body: {}, mensagem: 'Tarefa inválida.' },
+  { metodo: 'DELETE', caminho: `/api/super-tasks/${UUID}/tarefas/abc`, mensagem: 'Tarefa inválida.' },
+  { metodo: 'GET', caminho: '/api/super-tasks?arquivadas=talvez', mensagem: 'Filtro de arquivadas inválido, use true ou false.' },
   { metodo: 'PATCH', caminho: '/api/sprints/ocorrencias/abc/concluir', mensagem: 'Identificador inválido.' },
   { metodo: 'POST', caminho: '/api/rotinas', body: { ...ROTINA, nome: ' ' }, mensagem: 'Informe o nome do item.' },
   { metodo: 'POST', caminho: '/api/rotinas', body: { ...ROTINA, repeticao: { modo: 'DIAS_DA_SEMANA', dias: [] } }, mensagem: 'Marque pelo menos um dia da semana.' },

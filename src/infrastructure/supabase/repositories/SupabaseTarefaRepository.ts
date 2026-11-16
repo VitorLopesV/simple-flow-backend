@@ -30,6 +30,7 @@ function paraTarefa(row: TarefaRow): Tarefa {
     prioridade: row.prioridade as Prioridade | null,
     notas: row.notas,
     sprintId: row.sprint_id,
+    superTaskId: row.super_task_id,
     concluidaEm: row.concluida_em,
     concluida: row.concluida_em !== null,
     atrasada:
@@ -142,6 +143,49 @@ export class SupabaseTarefaRepository implements TarefaRepository {
 
     if (error) throw error
     if (data.length === 0) throw new NotFoundError('Tarefa')
+  }
+
+  async listarDasSuperTasks(userId: ID, superTaskIds: ID[]): Promise<Tarefa[]> {
+    if (superTaskIds.length === 0) return []
+    const { data, error } = await this.supabase
+      .from('tarefas')
+      .select('*')
+      .eq('user_id', userId)
+      .in('super_task_id', superTaskIds)
+      .order('criado_em', { ascending: true })
+
+    if (error) throw error
+    return data.map(paraTarefa)
+  }
+
+  async definirSuperTask(userId: ID, id: ID, superTaskId: ID | null): Promise<Tarefa> {
+    return this.alterar(userId, id, { super_task_id: superTaskId })
+  }
+
+  async moverDaSuperTask(userId: ID, superTaskId: ID, areaId: ID): Promise<void> {
+    const { error } = await this.supabase
+      .from('tarefas')
+      .update({ area_id: areaId })
+      .eq('super_task_id', superTaskId)
+      .eq('user_id', userId)
+
+    if (error) throw error
+  }
+
+  async soltarDaSuperTask(userId: ID, superTaskId: ID): Promise<void> {
+    const { error } = await this.supabase
+      .from('tarefas')
+      .update({ super_task_id: null })
+      .eq('super_task_id', superTaskId)
+      .eq('user_id', userId)
+
+    if (error) throw error
+  }
+
+  async removerDaSuperTask(userId: ID, superTaskId: ID): Promise<void> {
+    const { error } = await this.supabase.from('tarefas').delete().eq('super_task_id', superTaskId).eq('user_id', userId)
+
+    if (error) throw error
   }
 
   private async alterar(

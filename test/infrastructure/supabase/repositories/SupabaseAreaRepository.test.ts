@@ -132,5 +132,47 @@ describe('SupabaseAreaRepository', () => {
       expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
       await expect(repositorio.removerTarefas(USER_ID, ID)).rejects.toBe(ERRO)
     })
+
+    it('contarTarefas: soma as Super tasks da área (também filtradas por user_id)', async () => {
+      const { fake, repositorio } = montar({
+        tarefas: [{ data: null, error: null, count: 4 } as never],
+        super_tasks: [{ data: null, error: null, count: 2 } as never],
+      })
+
+      await expect(repositorio.contarTarefas(USER_ID, ID)).resolves.toBe(6)
+      expect(fake.consultas[1]!.tabela).toBe('super_tasks')
+      expect(fake.consultas[1]!.chamadas).toContainEqual(['eq', 'area_id', ID])
+      expect(fake.consultas[1]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    })
+
+    it('contarTarefas: só Super tasks (count ausente nas tarefas) e erro das Super tasks propagado', async () => {
+      const so = montar({ tarefas: [ok(null)], super_tasks: [{ data: null, error: null, count: 1 } as never] })
+      await expect(so.repositorio.contarTarefas(USER_ID, ID)).resolves.toBe(1)
+
+      const erro = montar({ tarefas: [ok(null)], super_tasks: [falha(ERRO)] })
+      await expect(erro.repositorio.contarTarefas(USER_ID, ID)).rejects.toBe(ERRO)
+    })
+
+    it('moverTarefas: a Super task da área acompanha (só do usuário)', async () => {
+      const { fake, repositorio } = montar({ tarefas: [ok(null), ok(null)], super_tasks: [ok(null), falha(ERRO)] })
+
+      await repositorio.moverTarefas(USER_ID, ID, ID_2)
+      expect(fake.consultas[1]!.tabela).toBe('super_tasks')
+      expect(argumentos(fake.consultas[1]!, 'update')).toEqual([{ area_id: ID_2 }])
+      expect(fake.consultas[1]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+
+      await expect(repositorio.moverTarefas(USER_ID, ID, ID_2)).rejects.toBe(ERRO)
+    })
+
+    it('removerTarefas: apaga também as Super tasks da área (só do usuário)', async () => {
+      const { fake, repositorio } = montar({ tarefas: [ok(null), ok(null)], super_tasks: [ok(null), falha(ERRO)] })
+
+      await repositorio.removerTarefas(USER_ID, ID)
+      expect(fake.consultas[1]!.tabela).toBe('super_tasks')
+      expect(usou(fake.consultas[1]!, 'delete')).toBe(true)
+      expect(fake.consultas[1]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+
+      await expect(repositorio.removerTarefas(USER_ID, ID)).rejects.toBe(ERRO)
+    })
   })
 })

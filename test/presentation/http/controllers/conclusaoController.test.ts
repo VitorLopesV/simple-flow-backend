@@ -7,6 +7,7 @@ import { USUARIO, criarRequisicao, criarResposta } from '../../../helpers/http'
 const m = vi.hoisted(() => ({
   RepositorioTarefa: vi.fn(function (client: unknown) { return { repositorio: 'tarefa', client } }),
   RepositorioSprint: vi.fn(function (client: unknown) { return { repositorio: 'sprint', client } }),
+  RepositorioSuperTask: vi.fn(function (client: unknown) { return { repositorio: 'superTask', client } }),
   RepositorioOcorrencia: vi.fn(function (client: unknown) { return { repositorio: 'ocorrencias', client } }),
   executeConcluirTarefa: vi.fn(),
   executeDesmarcar: vi.fn(),
@@ -18,6 +19,7 @@ const m = vi.hoisted(() => ({
 
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseTarefaRepository', () => ({ SupabaseTarefaRepository: m.RepositorioTarefa }))
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseSprintRepository', () => ({ SupabaseSprintRepository: m.RepositorioSprint }))
+vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseSuperTaskRepository', () => ({ SupabaseSuperTaskRepository: m.RepositorioSuperTask }))
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseOcorrenciaRotinaRepository', () => ({ SupabaseOcorrenciaRotinaRepository: m.RepositorioOcorrencia }))
 vi.mock('../../../../src/application/use-cases/tarefas/ConcluirTarefa', () => ({ ConcluirTarefa: m.ConcluirTarefa }))
 vi.mock('../../../../src/application/use-cases/tarefas/DesmarcarConclusaoTarefa', () => ({ DesmarcarConclusaoTarefa: m.DesmarcarConclusaoTarefa }))
@@ -40,7 +42,12 @@ describe('controllers de conclusão', () => {
 
     expect(m.RepositorioTarefa).toHaveBeenCalledWith(req.supabase)
     expect(m.RepositorioSprint).toHaveBeenCalledWith(req.supabase)
-    expect(m.ConcluirTarefa).toHaveBeenCalledWith(m.RepositorioTarefa.mock.results[0]!.value, m.RepositorioSprint.mock.results[0]!.value)
+    expect(m.RepositorioSuperTask).toHaveBeenCalledWith(req.supabase)
+    expect(m.ConcluirTarefa).toHaveBeenCalledWith(
+      m.RepositorioTarefa.mock.results[0]!.value,
+      m.RepositorioSprint.mock.results[0]!.value,
+      m.RepositorioSuperTask.mock.results[0]!.value,
+    )
     expect(m.executeConcluirTarefa).toHaveBeenCalledWith(USUARIO.id, 't')
     expect(res.json).toHaveBeenCalledWith({ id: 't', concluida: true })
   })

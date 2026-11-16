@@ -156,3 +156,9 @@ Vercel, projeto separado do frontend (root directory `backend/`), function em `a
 - Preview deployments do frontend não passam no CORS por padrão (comparação exata de origem, sem regex de subdomínio).
 - Build na Vercel não roda `tsc` explicitamente — erros de type-check não bloqueiam o deploy automaticamente; rode `npm run type-check` manualmente antes de subir.
 - **Keepalive do Supabase (Free pausa após ~7 dias sem atividade)**: Vercel Cron diário (`vercel.json`, `0 12 * * *`) chama `GET /api/keepalive` (`keepaliveController`, `select` leve em `categorias` com `supabaseAnonClient()`). Protegida por `cronMiddleware` (`Authorization: Bearer <CRON_SECRET>`, falha fechada sem a env var), não por `authMiddleware`. `CRON_SECRET` precisa existir na Vercel + redeploy. Hobby só permite cron diário. Detalhes no README.
+
+## Regra de negócio não óbvia: Super task (#65)
+
+Super task é uma entidade/tabela própria (`super_tasks`), **não** uma linha de `tarefas`: não pontua e nunca entra no sprint (`superTask` do placar é sempre `false`; só as filhas, tarefas comuns ligadas por `tarefas.super_task_id`, entram e pontuam). Um nível só, na mesma área das filhas, nunca na Rotina.
+
+Progresso, estado e `vencida` são **derivados** na leitura (`calcularProgresso`, `detalharSuperTask`); só `concluida_em` é gravado. Conclusão automática (`ConcluirSuperTaskSeCompleta`) ao concluir a última filha (`ConcluirTarefa`), ao excluir (`RemoverTarefa`) ou retirar a filha que faltava; ao reabrir (`DesmarcarSuperTaskConcluida`) nada reconclui sozinho. Concluída trava edição, mudança de área e filhas novas (409). Como concluir tarefa é definitivo (#70), filha concluída não sai da Super task nem muda de área, e `EXCLUIR` junto é recusado se houver filha concluída (use `SOLTAR`). Filha aberta só muda de área junto com a Super task (`MoverSuperTask`).

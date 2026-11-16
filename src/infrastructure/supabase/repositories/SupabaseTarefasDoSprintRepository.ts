@@ -9,7 +9,8 @@ import type { Database } from '../database.types'
 
 /**
  * Tarefas vinculadas ao sprint (`sprint_id`, #69). `concluida` vem de `concluida_em` e `atrasada`
- * de `tarefaAtrasada` (#70, sempre contra o dia atual da tarefa); `superTask` é da #65 e segue `false`.
+ * de `tarefaAtrasada` (#70, sempre contra o dia atual da tarefa); `superTask` é sempre `false`: a Super task
+ * (#65) é outra tabela e nunca entra no sprint nem pontua, só as filhas (tarefas comuns) entram.
  */
 export class SupabaseTarefasDoSprintRepository implements TarefasDoSprintRepository {
   constructor(private readonly client: SupabaseClient<Database>) {}

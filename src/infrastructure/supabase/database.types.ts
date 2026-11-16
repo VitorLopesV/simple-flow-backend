@@ -489,6 +489,45 @@ export type Database = {
         }
         Relationships: []
       }
+      super_tasks: {
+        Row: {
+          area_id: string
+          arquivada_em: string | null
+          atualizado_em: string
+          concluida_em: string | null
+          criado_em: string
+          data_termino: string | null
+          id: string
+          notas: string | null
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          area_id: string
+          arquivada_em?: string | null
+          atualizado_em?: string
+          concluida_em?: string | null
+          criado_em?: string
+          data_termino?: string | null
+          id?: string
+          notas?: string | null
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          area_id?: string
+          arquivada_em?: string | null
+          atualizado_em?: string
+          concluida_em?: string | null
+          criado_em?: string
+          data_termino?: string | null
+          id?: string
+          notas?: string | null
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tarefas: {
         Row: {
           area_id: string
@@ -503,6 +542,7 @@ export type Database = {
           notas: string | null
           prioridade: string | null
           sprint_id: string | null
+          super_task_id: string | null
           tempo_estimado_minutos: number | null
           titulo: string
           user_id: string
@@ -520,6 +560,7 @@ export type Database = {
           notas?: string | null
           prioridade?: string | null
           sprint_id?: string | null
+          super_task_id?: string | null
           tempo_estimado_minutos?: number | null
           titulo: string
           user_id: string
@@ -537,6 +578,7 @@ export type Database = {
           notas?: string | null
           prioridade?: string | null
           sprint_id?: string | null
+          super_task_id?: string | null
           tempo_estimado_minutos?: number | null
           titulo?: string
           user_id?: string
