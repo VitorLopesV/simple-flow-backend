@@ -3,6 +3,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../../../domain/e
 import type { SprintRepository } from '../../../domain/repositories/SprintRepository'
 import type { TarefaRepository } from '../../../domain/repositories/TarefaRepository'
 import {
+  MENSAGEM_TAREFA_CONCLUIDA,
   MENSAGEM_TAREFA_TRAVADA,
   inicioDoSprintDoDia,
   motivoDeRecusa,
@@ -28,6 +29,7 @@ export class AtualizarTarefa {
   async execute(userId: ID, id: ID, edicao: TarefaEdicao, agora: Date = new Date()): Promise<Tarefa> {
     const tarefa = await this.tarefaRepository.buscarPorId(userId, id)
     if (!tarefa) throw new NotFoundError('Tarefa')
+    if (tarefa.concluida) throw new ConflictError(MENSAGEM_TAREFA_CONCLUIDA)
 
     const hoje = dataAtual(agora)
     if (tarefaTravada(tarefa, hoje)) throw new ConflictError(MENSAGEM_TAREFA_TRAVADA)

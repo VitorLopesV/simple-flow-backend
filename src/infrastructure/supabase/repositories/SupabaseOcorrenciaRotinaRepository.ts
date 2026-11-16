@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import { NotFoundError } from '../../../domain/errors/DomainError'
 import type { OcorrenciaPlanejada, OcorrenciaRotina } from '../../../domain/entities/OcorrenciaRotina'
 import type { OcorrenciaRotinaRepository } from '../../../domain/repositories/OcorrenciaRotinaRepository'
 import type { ID } from '../../../shared/types/common'
@@ -49,6 +50,38 @@ export class SupabaseOcorrenciaRotinaRepository implements OcorrenciaRotinaRepos
 
     if (error) throw error
     return data.map(paraOcorrencia)
+  }
+
+  async buscarPorId(userId: ID, id: ID): Promise<OcorrenciaRotina | null> {
+    const { data, error } = await this.supabase
+      .from('ocorrencias_rotina')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (error) throw error
+    return data ? paraOcorrencia(data) : null
+  }
+
+  async concluir(userId: ID, id: ID, concluidaEm: string): Promise<OcorrenciaRotina> {
+    const { data, error } = await this.supabase
+      .from('ocorrencias_rotina')
+      .update({ concluida_em: concluidaEm })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .is('concluida_em', null)
+      .select('*')
+      .maybeSingle()
+
+    if (error) throw error
+    // Sem linha: já concluída por outra requisição ou removida; a conclusão original prevalece.
+    if (!data) {
+      const atual = await this.buscarPorId(userId, id)
+      if (!atual) throw new NotFoundError('Ocorrência')
+      return atual
+    }
+    return paraOcorrencia(data)
   }
 
   async inserirVarias(

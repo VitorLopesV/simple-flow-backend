@@ -16,6 +16,9 @@ sprintsRoutes.get('/proximo', asyncHandler(sprintsController.proximo))
 sprintsRoutes.get('/atual/placar', asyncHandler(sprintsController.placarAtual))
 sprintsRoutes.get('/proximo/placar', asyncHandler(sprintsController.placarProximo))
 
+// Rotina: concluir a ocorrência (só no próprio dia).
+sprintsRoutes.patch('/ocorrencias/:id/concluir', validate(idParamSchema, 'params'), asyncHandler(sprintsController.concluirOcorrencia))
+
 // Tarefas no sprint: o dia vem do corpo e o sprint (atual ou próximo) é deduzido dele.
 sprintsRoutes.post('/tarefas', validate(adicionarTarefaAoSprintSchema), asyncHandler(sprintsController.adicionarTarefa))
 sprintsRoutes.patch(

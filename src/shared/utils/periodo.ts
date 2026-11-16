@@ -78,3 +78,31 @@ export function segundaDaSemana(dataIso: string): string {
   const diaDaSemana = new Date(`${dataIso}T00:00:00Z`).getUTCDay() // 0 = domingo
   return addDias(dataIso, -((diaDaSemana + 6) % 7))
 }
+
+/**
+ * Data e hora locais de São Paulo (`YYYY-MM-DDTHH:MM:SS`) do instante informado. É "relógio de parede",
+ * sem fuso, para comparar com `dia` + `hora` das tarefas (também em horário de São Paulo).
+ */
+export function dataHoraAtual(agora: Date): string {
+  const partes = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(agora)
+      .map(({ type, value }) => [type, value]),
+  )
+  return `${partes.year}-${partes.month}-${partes.day}T${partes.hour}:${partes.minute}:${partes.second}`
+}
+
+/** Soma minutos a uma data-hora local `YYYY-MM-DDTHH:MM[:SS]`, em UTC puro (sem deslocamento de fuso). */
+export function addMinutos(dataHora: string, minutos: number): string {
+  const base = dataHora.length === 16 ? `${dataHora}:00` : dataHora
+  return new Date(Date.parse(`${base}Z`) + minutos * 60_000).toISOString().slice(0, 19)
+}

@@ -11,6 +11,7 @@ import type {
   TempoEstimado,
 } from '../../../domain/entities/Tarefa'
 import type { TarefaRepository } from '../../../domain/repositories/TarefaRepository'
+import { tarefaAtrasada } from '../../../domain/services/atraso'
 import type { ID } from '../../../shared/types/common'
 import type { Database } from '../database.types'
 
@@ -29,6 +30,14 @@ function paraTarefa(row: TarefaRow): Tarefa {
     prioridade: row.prioridade as Prioridade | null,
     notas: row.notas,
     sprintId: row.sprint_id,
+    concluidaEm: row.concluida_em,
+    concluida: row.concluida_em !== null,
+    atrasada:
+      row.concluida_em !== null &&
+      tarefaAtrasada(
+        { dia: row.dia, hora: row.hora, tempoEstimado: row.tempo_estimado_minutos },
+        new Date(row.concluida_em),
+      ),
     arquivada: row.arquivada_em !== null,
     arquivadaEm: row.arquivada_em,
     criadoEm: row.criado_em,
@@ -93,6 +102,26 @@ export class SupabaseTarefaRepository implements TarefaRepository {
       sprint_id: vinculo.sprintId,
       ...(vinculo.dia === undefined ? {} : { dia: vinculo.dia }),
     })
+  }
+
+  async concluir(userId: ID, id: ID, concluidaEm: string): Promise<Tarefa> {
+    const { data, error } = await this.supabase
+      .from('tarefas')
+      .update({ concluida_em: concluidaEm })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .is('concluida_em', null)
+      .select('*')
+      .maybeSingle()
+
+    if (error) throw error
+    // Sem linha: já concluída (por outra requisição) ou removida; a conclusão original prevalece.
+    if (!data) {
+      const atual = await this.buscarPorId(userId, id)
+      if (!atual) throw new NotFoundError('Tarefa')
+      return atual
+    }
+    return paraTarefa(data)
   }
 
   async mover(userId: ID, id: ID, areaId: ID): Promise<Tarefa> {

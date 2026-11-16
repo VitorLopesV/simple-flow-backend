@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express'
 
 import { AdicionarTarefaAoSprint } from '../../../application/use-cases/sprints/AdicionarTarefaAoSprint'
+import { ConcluirOcorrenciaRotina } from '../../../application/use-cases/sprints/ConcluirOcorrenciaRotina'
 import { MoverTarefaNoSprint } from '../../../application/use-cases/sprints/MoverTarefaNoSprint'
 import { ObterPlacarDoSprint } from '../../../application/use-cases/sprints/ObterPlacarDoSprint'
 import { ObterSprint } from '../../../application/use-cases/sprints/ObterSprint'
@@ -46,6 +47,15 @@ export const sprintsController = {
 
   async proximo(req: Request, res: Response) {
     res.json(await obterSprint(req).execute(req.usuario!.id, 'PROXIMO'))
+  },
+
+  async concluirOcorrencia(req: Request, res: Response) {
+    res.json(
+      await new ConcluirOcorrenciaRotina(new SupabaseOcorrenciaRotinaRepository(req.supabase!)).execute(
+        req.usuario!.id,
+        req.params.id,
+      ),
+    )
   },
 
   async adicionarTarefa(req: Request, res: Response) {

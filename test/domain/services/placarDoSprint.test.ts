@@ -60,6 +60,13 @@ describe('calcularPlacar', () => {
     expect(placar).toMatchObject({ total: 15, feitos: 3 })
   })
 
+  it('atraso custa o bônus: concluída no prazo libera (feitos*10 >= total*9), atrasada vale 20% e não libera', () => {
+    const noPrazo = calcularPlacar([], [tarefa({ concluida: true })], INICIO, FIM)
+    const atrasada = calcularPlacar([], [tarefa({ concluida: true, atrasada: true })], INICIO, FIM)
+    expect(noPrazo).toMatchObject({ total: 15, feitos: 15, percentual: 100, bonus: true })
+    expect(atrasada).toMatchObject({ total: 15, feitos: 3, percentual: 20, bonus: false })
+  })
+
   it('super task nunca pontua', () => {
     const placar = calcularPlacar([], [tarefa({ superTask: true, concluida: true })], INICIO, FIM)
     expect(placar).toMatchObject({ total: 0, feitos: 0 })

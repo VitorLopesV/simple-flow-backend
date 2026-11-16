@@ -61,3 +61,6 @@ export function motivoDeRecusa(tarefa: DadosParaSprint, hoje: string): string | 
 export function tarefaTravada(tarefa: { sprintId: string | null; dia: string | null }, hoje: string): boolean {
   return tarefa.sprintId !== null && tarefa.dia !== null && tarefa.dia < hoje
 }
+
+export const MENSAGEM_TAREFA_CONCLUIDA =
+  'Esta tarefa já foi concluída e a conclusão é definitiva: ela não pode ser desmarcada nem alterada.'
