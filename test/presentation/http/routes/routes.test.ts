@@ -29,6 +29,7 @@ const m = vi.hoisted(() => {
     supabaseClientForRequest: vi.fn(() => ({ cliente: 'supabase-da-requisicao' })),
     primeiraDataComDados: vi.fn(),
     auth: controller('auth', ['registrar', 'login', 'refresh', 'me', 'atualizarPerfil']),
+    areas: controller('areas', ['listar', 'criar', 'atualizar', 'remover']),
     categorias: controller('categorias', ['listar']),
     entradas: controller('entradas', ['listar', 'resumo', 'criar', 'atualizar', 'remover']),
     saidas: controller('saidas', ['listar', 'resumo', 'criar', 'atualizar', 'remover']),
@@ -57,6 +58,7 @@ vi.mock('../../../../src/infrastructure/supabase/supabaseClientForRequest', () =
   supabaseClientForRequest: m.supabaseClientForRequest,
 }))
 vi.mock('../../../../src/presentation/http/controllers/authController', () => ({ authController: m.auth }))
+vi.mock('../../../../src/presentation/http/controllers/areasController', () => ({ areasController: m.areas }))
 vi.mock('../../../../src/presentation/http/controllers/categoriasController', () => ({ categoriasController: m.categorias }))
 vi.mock('../../../../src/presentation/http/controllers/entradasController', () => ({ entradasController: m.entradas }))
 vi.mock('../../../../src/presentation/http/controllers/saidasController', () => ({ saidasController: m.saidas }))
@@ -105,6 +107,7 @@ const PERFIL = {
   telefone: '11999998888',
   fotoUrl: 'data:image/jpeg;base64,/9j/4AAQ',
 }
+const AREA = { nome: 'Estudos', cor: '#10b981' }
 const TRANSACAO = {
   descricao: 'Mercado',
   valor: 200,
@@ -132,6 +135,12 @@ const ROTAS_PUBLICAS: Rota[] = [
 const ROTAS_PROTEGIDAS: Rota[] = [
   { metodo: 'GET', caminho: '/api/auth/me', acao: 'auth.me' },
   { metodo: 'PATCH', caminho: '/api/auth/me', acao: 'auth.atualizarPerfil', body: PERFIL },
+  { metodo: 'GET', caminho: '/api/areas', acao: 'areas.listar' },
+  { metodo: 'POST', caminho: '/api/areas', acao: 'areas.criar', body: AREA },
+  { metodo: 'PUT', caminho: `/api/areas/${UUID}`, acao: 'areas.atualizar', body: AREA },
+  { metodo: 'DELETE', caminho: `/api/areas/${UUID}`, acao: 'areas.remover' },
+  { metodo: 'DELETE', caminho: `/api/areas/${UUID}?tarefas=excluir`, acao: 'areas.remover' },
+  { metodo: 'DELETE', caminho: `/api/areas/${UUID}?tarefas=mover&destinoId=${UUID_2}`, acao: 'areas.remover' },
   { metodo: 'GET', caminho: '/api/categorias', acao: 'categorias.listar' },
   { metodo: 'GET', caminho: '/api/entradas/resumo?competencia=2026-08', acao: 'entradas.resumo' },
   { metodo: 'GET', caminho: '/api/entradas?mes=8&ano=2026', acao: 'entradas.listar' },
@@ -164,6 +173,12 @@ const ROTAS_PROTEGIDAS: Rota[] = [
 
 /** Entrada inválida por rota validada, com a mensagem que o schema devolve (quando é uma mensagem própria). */
 const ENTRADAS_INVALIDAS: (Omit<Rota, 'acao'> & { mensagem?: string })[] = [
+  { metodo: 'POST', caminho: '/api/areas', body: { ...AREA, nome: '' }, mensagem: 'Informe o nome da área.' },
+  { metodo: 'POST', caminho: '/api/areas', body: { ...AREA, cor: 'verde' }, mensagem: 'Cor inválida, use o formato #RRGGBB.' },
+  { metodo: 'PUT', caminho: '/api/areas/abc', body: AREA, mensagem: 'Identificador inválido.' },
+  { metodo: 'DELETE', caminho: `/api/areas/${UUID}?tarefas=apagar`, mensagem: 'Escolha mover ou excluir as tarefas.' },
+  { metodo: 'DELETE', caminho: `/api/areas/${UUID}?tarefas=mover`, mensagem: 'Informe a área de destino das tarefas.' },
+  { metodo: 'DELETE', caminho: `/api/areas/${UUID}?destinoId=${UUID_2}`, mensagem: 'A área de destino só vale ao mover as tarefas.' },
   { metodo: 'POST', caminho: '/api/auth/registro', body: { email: 'ana', senha: 'segredo' }, mensagem: 'E-mail inválido.' },
   { metodo: 'POST', caminho: '/api/auth/login', body: { email: 'ana@exemplo.com', senha: '' }, mensagem: 'Informe a senha.' },
   { metodo: 'POST', caminho: '/api/auth/refresh', body: { refreshToken: '' }, mensagem: 'Informe o refresh token.' },

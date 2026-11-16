@@ -17,6 +17,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      areas: {
+        Row: {
+          atualizado_em: string
+          cor: string
+          criado_em: string
+          id: string
+          nome: string
+          sistema: boolean
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          cor: string
+          criado_em?: string
+          id?: string
+          nome: string
+          sistema?: boolean
+          user_id: string
+        }
+        Update: {
+          atualizado_em?: string
+          cor?: string
+          criado_em?: string
+          id?: string
+          nome?: string
+          sistema?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       atividades: {
         Row: {
           acao: string
