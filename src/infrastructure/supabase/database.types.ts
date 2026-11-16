@@ -261,6 +261,48 @@ export type Database = {
           },
         ]
       }
+      itens_rotina: {
+        Row: {
+          area_id: string
+          atualizado_em: string
+          criado_em: string
+          data_inicial: string | null
+          dias_semana: number[] | null
+          id: string
+          intervalo_dias: number | null
+          modo: string
+          nome: string
+          user_id: string
+          vezes: Json
+        }
+        Insert: {
+          area_id: string
+          atualizado_em?: string
+          criado_em?: string
+          data_inicial?: string | null
+          dias_semana?: number[] | null
+          id?: string
+          intervalo_dias?: number | null
+          modo: string
+          nome: string
+          user_id: string
+          vezes: Json
+        }
+        Update: {
+          area_id?: string
+          atualizado_em?: string
+          criado_em?: string
+          data_inicial?: string | null
+          dias_semana?: number[] | null
+          id?: string
+          intervalo_dias?: number | null
+          modo?: string
+          nome?: string
+          user_id?: string
+          vezes?: Json
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           criado_em: string
