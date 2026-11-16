@@ -62,3 +62,19 @@ export function dataAtual(agora: Date): string {
     day: '2-digit',
   }).format(agora)
 }
+
+const DIA_EM_MS = 86_400_000
+
+/** Soma (ou subtrai) dias a uma data `YYYY-MM-DD`, em UTC puro — o fuso do servidor nunca desloca o dia. */
+export function addDias(dataIso: string, n: number): string {
+  return new Date(Date.parse(`${dataIso}T00:00:00Z`) + n * DIA_EM_MS).toISOString().slice(0, 10)
+}
+
+/**
+ * Segunda-feira da semana (ISO) da data informada. Sábado e domingo pertencem à semana que
+ * acabou de terminar: o sprint vai de segunda a sexta e o fim de semana não pontua.
+ */
+export function segundaDaSemana(dataIso: string): string {
+  const diaDaSemana = new Date(`${dataIso}T00:00:00Z`).getUTCDay() // 0 = domingo
+  return addDias(dataIso, -((diaDaSemana + 6) % 7))
+}

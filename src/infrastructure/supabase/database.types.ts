@@ -303,6 +303,51 @@ export type Database = {
         }
         Relationships: []
       }
+      ocorrencias_rotina: {
+        Row: {
+          concluida_em: string | null
+          criado_em: string
+          data: string
+          hora: string | null
+          id: string
+          indice: number
+          item_id: string | null
+          lembrete: boolean
+          nome: string
+          ordem: number
+          sprint_id: string
+          user_id: string
+        }
+        Insert: {
+          concluida_em?: string | null
+          criado_em?: string
+          data: string
+          hora?: string | null
+          id?: string
+          indice: number
+          item_id?: string | null
+          lembrete?: boolean
+          nome: string
+          ordem: number
+          sprint_id: string
+          user_id: string
+        }
+        Update: {
+          concluida_em?: string | null
+          criado_em?: string
+          data?: string
+          hora?: string | null
+          id?: string
+          indice?: number
+          item_id?: string | null
+          lembrete?: boolean
+          nome?: string
+          ordem?: number
+          sprint_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           criado_em: string
@@ -410,6 +455,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sprints: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          fim: string
+          id: string
+          inicio: string
+          rotina_gerada_em: string | null
+          situacao: string
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          fim: string
+          id?: string
+          inicio: string
+          rotina_gerada_em?: string | null
+          situacao?: string
+          user_id: string
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          fim?: string
+          id?: string
+          inicio?: string
+          rotina_gerada_em?: string | null
+          situacao?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       tarefas: {
         Row: {
