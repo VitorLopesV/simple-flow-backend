@@ -7,6 +7,7 @@ import { categoriasRoutes } from './categorias.routes'
 import { dashboardRoutes } from './dashboard.routes'
 import { entradasRoutes } from './entradas.routes'
 import { faturasRoutes } from './faturas.routes'
+import { homeRoutes } from './home.routes'
 import { keepaliveRoutes } from './keepalive.routes'
 import { navegacaoRoutes } from './navegacao.routes'
 import { rotinasRoutes } from './rotinas.routes'
@@ -31,4 +32,5 @@ routes.use('/saidas', saidasRoutes)
 routes.use('/cartoes', cartoesRoutes)
 routes.use('/faturas', faturasRoutes)
 routes.use('/dashboard', dashboardRoutes)
+routes.use('/home', homeRoutes)
 routes.use('/navegacao', navegacaoRoutes)

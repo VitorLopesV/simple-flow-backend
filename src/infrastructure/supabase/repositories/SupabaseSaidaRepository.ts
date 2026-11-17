@@ -8,7 +8,7 @@ import type { SaidaFiltro, SaidaRepository } from '../../../domain/repositories/
 import type { ID, Paginated, Periodo } from '../../../shared/types/common'
 import { agruparPorTipo } from '../../../shared/utils/agrupamento'
 import { faixaDaPagina, montarPaginado } from '../../../shared/utils/paginacao'
-import { dataAtual, limitesDoMes, mesAnterior } from '../../../shared/utils/periodo'
+import { dataAtual, limitesDoMes, mesAnterior, paraPeriodo } from '../../../shared/utils/periodo'
 import { inicioDoMesSeguinte } from '../../../shared/utils/recorrencia'
 import { correspondeASituacao } from '../../../shared/utils/situacao'
 import type { Database } from '../database.types'
@@ -116,6 +116,32 @@ export class SupabaseSaidaRepository implements SaidaRepository {
 
     return [...doPeriodo.data.map(paraSaida), ...faturas.map(paraSaidaDeFatura)].sort((a, b) =>
       b.data.localeCompare(a.data),
+    )
+  }
+
+  async listarPendentesVencendoEntre(userId: ID, inicio: string, fim: string): Promise<Saida[]> {
+    // A janela pode cruzar a virada do mês: as faturas são lidas por mês de vencimento e recortadas depois.
+    const meses = [...new Set([inicio.slice(0, 7), fim.slice(0, 7)])].map(paraPeriodo)
+
+    const [saidas, ...faturasPorMes] = await Promise.all([
+      this.supabase
+        .from('saidas')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'PENDENTE')
+        .gte('vencimento', inicio)
+        .lte('vencimento', fim),
+      ...meses.map((mes) => this.faturaRepository.listarVencendoNoPeriodo(userId, mes)),
+    ])
+
+    if (saidas.error) throw saidas.error
+
+    const faturas = faturasPorMes
+      .flat()
+      .filter((fatura) => !fatura.paga && fatura.vencimento >= inicio && fatura.vencimento <= fim)
+
+    return [...saidas.data.map(paraSaida), ...faturas.map(paraSaidaDeFatura)].sort(
+      (a, b) => a.vencimento!.localeCompare(b.vencimento!) || a.descricao.localeCompare(b.descricao),
     )
   }
 

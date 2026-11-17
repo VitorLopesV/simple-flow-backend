@@ -43,6 +43,7 @@ export function criarSaidaRepositoryFake() {
     listar: vi.fn(),
     resumo: vi.fn(),
     listarDoPeriodo: vi.fn(),
+    listarPendentesVencendoEntre: vi.fn(),
     buscarPorId: vi.fn(),
     criar: vi.fn(),
     atualizar: vi.fn(),
@@ -81,6 +82,7 @@ export function criarItemRotinaRepositoryFake() {
 export function criarTarefaRepositoryFake() {
   return {
     listar: vi.fn(),
+    listarDoDia: vi.fn(),
     buscarPorId: vi.fn(),
     criar: vi.fn(),
     atualizar: vi.fn(),

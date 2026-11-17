@@ -72,6 +72,18 @@ export class SupabaseTarefaRepository implements TarefaRepository {
     return data.map(paraTarefa)
   }
 
+  async listarDoDia(userId: ID, dia: string): Promise<Tarefa[]> {
+    const { data, error } = await this.supabase
+      .from('tarefas')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('dia', dia)
+      .is('arquivada_em', null)
+
+    if (error) throw error
+    return data.map(paraTarefa)
+  }
+
   async buscarPorId(userId: ID, id: ID): Promise<Tarefa | null> {
     const { data, error } = await this.supabase
       .from('tarefas')
