@@ -4,6 +4,7 @@ import type { SprintRepository } from '../../../domain/repositories/SprintReposi
 import type { SuperTaskRepository } from '../../../domain/repositories/SuperTaskRepository'
 import type { TarefaRepository } from '../../../domain/repositories/TarefaRepository'
 import type { ID } from '../../../shared/types/common'
+import type { FecharSprintsVencidos } from '../sprints/FecharSprintsVencidos'
 import { EntrarNoSprintPorConclusao } from '../sprints/EntrarNoSprintPorConclusao'
 import { ConcluirSuperTaskSeCompleta } from '../superTasks/ConcluirSuperTaskSeCompleta'
 
@@ -24,12 +25,16 @@ export class ConcluirTarefa {
     private readonly tarefaRepository: TarefaRepository,
     sprintRepository: SprintRepository,
     superTaskRepository: SuperTaskRepository,
+    /** Fecha antes o sprint vencido (#71): concluir depois de sexta 23:59 não conta no sprint já encerrado. */
+    private readonly fecharVencidos?: Pick<FecharSprintsVencidos, 'execute'>,
   ) {
     this.entrarNoSprint = new EntrarNoSprintPorConclusao(tarefaRepository, sprintRepository)
     this.concluirSuperTask = new ConcluirSuperTaskSeCompleta(superTaskRepository, tarefaRepository)
   }
 
   async execute(userId: ID, id: ID, agora: Date = new Date()): Promise<Tarefa> {
+    await this.fecharVencidos?.execute(userId, agora)
+
     const tarefa = await this.tarefaRepository.buscarPorId(userId, id)
     if (!tarefa) throw new NotFoundError('Tarefa')
     if (tarefa.concluida) return tarefa

@@ -11,6 +11,9 @@ const SPRINT = {
   fim: '2026-11-20',
   situacao: 'ABERTO',
   rotinaGeradaEm: null,
+  fechadoEm: null,
+  foto: null,
+  fechamentoAplicadoEm: null,
   criadoEm: '2026-01-01T00:00:00.000Z',
 }
 
@@ -50,5 +53,69 @@ describe('SupabaseSprintRepository', () => {
     expect(chamadas).toContainEqual(['eq', 'id', 'spr-1'])
     expect(chamadas).toContainEqual(['eq', 'user_id', USER_ID])
     expect(chamadas).toContainEqual(['is', 'rotina_gerada_em', null])
+  })
+
+  it('mapeia a foto e o fechamento do sprint fechado', async () => {
+    const foto = { total: 300, feitos: 240, percentual: 80, bonus: false }
+    const fake = criarSupabaseFake({
+      sprints: [
+        ok(null),
+        ok(linhaSprint({ situacao: 'FECHADO', foto, fechado_em: '2026-11-21T02:59:00.000Z', fechamento_aplicado_em: '2026-11-21T02:59:00.000Z' })),
+      ],
+    })
+
+    const sprint = await new SupabaseSprintRepository(fake.client).garantir(USER_ID, '2026-11-16', '2026-11-20')
+
+    expect(sprint).toMatchObject({
+      situacao: 'FECHADO',
+      foto,
+      fechadoEm: '2026-11-21T02:59:00.000Z',
+      fechamentoAplicadoEm: '2026-11-21T02:59:00.000Z',
+    })
+  })
+
+  it('listarPendentesDeFechamento: só do usuário, com fim até a data e fechamento não aplicado, do mais antigo ao mais novo', async () => {
+    const fake = criarSupabaseFake({ sprints: [ok([linhaSprint({ id: 'a' }), linhaSprint({ id: 'b' })]), falha(ERRO)] })
+    const repositorio = new SupabaseSprintRepository(fake.client)
+
+    const pendentes = await repositorio.listarPendentesDeFechamento(USER_ID, '2026-11-21')
+    await expect(repositorio.listarPendentesDeFechamento(USER_ID, 'x')).rejects.toBe(ERRO)
+
+    expect(pendentes.map((s) => s.id)).toEqual(['a', 'b'])
+    const chamadas = fake.consultas[0]!.chamadas
+    expect(chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    expect(chamadas).toContainEqual(['lte', 'fim', '2026-11-21'])
+    expect(chamadas).toContainEqual(['is', 'fechamento_aplicado_em', null])
+    expect(chamadas).toContainEqual(['order', 'inicio', { ascending: true }])
+  })
+
+  it('fechar: grava a foto só em sprint ABERTO do usuário; devolve se esta chamada fechou; propaga erro', async () => {
+    const foto = { total: 0, feitos: 0, percentual: 0, bonus: false, rotina: {}, tarefas: {} } as never
+    const fake = criarSupabaseFake({ sprints: [ok([{ id: 'spr-1' }]), ok([]), falha(ERRO)] })
+    const repositorio = new SupabaseSprintRepository(fake.client)
+
+    expect(await repositorio.fechar(USER_ID, 'spr-1', foto, '2026-11-21T02:59:00.000Z')).toBe(true)
+    expect(await repositorio.fechar(USER_ID, 'spr-1', foto, 'x')).toBe(false)
+    await expect(repositorio.fechar(USER_ID, 'spr-1', foto, 'x')).rejects.toBe(ERRO)
+
+    const chamadas = fake.consultas[0]!.chamadas
+    expect(chamadas).toContainEqual(['update', { situacao: 'FECHADO', foto, fechado_em: '2026-11-21T02:59:00.000Z' }])
+    expect(chamadas).toContainEqual(['eq', 'id', 'spr-1'])
+    expect(chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    expect(chamadas).toContainEqual(['eq', 'situacao', 'ABERTO'])
+  })
+
+  it('marcarFechamentoAplicado: só do usuário e só se ainda não aplicado; propaga erro', async () => {
+    const fake = criarSupabaseFake({ sprints: [ok(null), falha(ERRO)] })
+    const repositorio = new SupabaseSprintRepository(fake.client)
+
+    await repositorio.marcarFechamentoAplicado(USER_ID, 'spr-1', '2026-11-21T02:59:00.000Z')
+    await expect(repositorio.marcarFechamentoAplicado(USER_ID, 'spr-1', 'x')).rejects.toBe(ERRO)
+
+    const chamadas = fake.consultas[0]!.chamadas
+    expect(chamadas).toContainEqual(['update', { fechamento_aplicado_em: '2026-11-21T02:59:00.000Z' }])
+    expect(chamadas).toContainEqual(['eq', 'id', 'spr-1'])
+    expect(chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    expect(chamadas).toContainEqual(['is', 'fechamento_aplicado_em', null])
   })
 })

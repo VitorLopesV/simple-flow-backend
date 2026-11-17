@@ -1,6 +1,8 @@
 import type { OcorrenciaRotina } from '../../../domain/entities/OcorrenciaRotina'
-import { NotFoundError, ValidationError } from '../../../domain/errors/DomainError'
+import { ConflictError, NotFoundError, ValidationError } from '../../../domain/errors/DomainError'
 import type { OcorrenciaRotinaRepository } from '../../../domain/repositories/OcorrenciaRotinaRepository'
+import { MENSAGEM_SPRINT_FECHADO, sprintVencido } from '../../../domain/services/fechamentoDoSprint'
+import { fimDoSprint, inicioDoSprintDoDia } from '../../../domain/services/sprintDaTarefa'
 import type { ID } from '../../../shared/types/common'
 import { dataAtual } from '../../../shared/utils/periodo'
 
@@ -15,6 +17,11 @@ export class ConcluirOcorrenciaRotina {
     const ocorrencia = await this.ocorrenciaRepository.buscarPorId(userId, id)
     if (!ocorrencia) throw new NotFoundError('Ocorrência')
     if (ocorrencia.concluidaEm) return ocorrencia
+
+    // Fechado (sexta 23:59 SP): a foto já foi, ou vai ser, tirada sem esta ocorrência. Lembrete de fim de semana não pontua.
+    if (!ocorrencia.lembrete && sprintVencido(fimDoSprint(inicioDoSprintDoDia(ocorrencia.data)), agora)) {
+      throw new ConflictError(MENSAGEM_SPRINT_FECHADO)
+    }
 
     const hoje = dataAtual(agora)
     if (ocorrencia.data > hoje) throw new ValidationError('Esta rotina é de outro dia: só pode ser concluída no próprio dia.')

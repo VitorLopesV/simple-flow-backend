@@ -22,7 +22,7 @@ export class CriarTarefa {
     // A Rotina só guarda itens de rotina, nunca tarefas comuns.
     if (area.sistema) throw new ValidationError('A área Rotina não aceita tarefas.')
 
-    if (payload.dia === null || motivoDeRecusa(payload, dataAtual(agora)) !== null) {
+    if (payload.dia === null || motivoDeRecusa(payload, dataAtual(agora), agora) !== null) {
       return this.tarefaRepository.criar(userId, payload)
     }
     const sprintId = await garantirSprintDoDia(this.sprintRepository, userId, payload.dia)

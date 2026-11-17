@@ -95,4 +95,19 @@ describe('SupabaseTarefasDoSprintRepository', () => {
     const fake = criarSupabaseFake({ tarefas: [falha(ERRO)] })
     await expect(new SupabaseTarefasDoSprintRepository(fake.client).listar(USER_ID, 's1', '2026-11-16', '2026-11-20')).rejects.toBe(ERRO)
   })
+
+  it('devolverNaoConcluidas: tira do sprint só as sem conclusão, marca o sprint de origem e filtra por user_id', async () => {
+    const fake = criarSupabaseFake({ tarefas: [ok(null), falha(ERRO)] })
+    const repositorio = new SupabaseTarefasDoSprintRepository(fake.client)
+
+    await repositorio.devolverNaoConcluidas(USER_ID, 's1', '2026-11-16')
+    await expect(repositorio.devolverNaoConcluidas(USER_ID, 's1', '2026-11-16')).rejects.toBe(ERRO)
+
+    const consulta = fake.consultas[0]!
+    expect(consulta.tabela).toBe('tarefas')
+    expect(consulta.chamadas).toContainEqual(['update', { sprint_id: null, nao_concluida_no_sprint_de: '2026-11-16' }])
+    expect(consulta.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    expect(consulta.chamadas).toContainEqual(['eq', 'sprint_id', 's1'])
+    expect(consulta.chamadas).toContainEqual(['is', 'concluida_em', null])
+  })
 })

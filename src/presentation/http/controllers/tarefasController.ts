@@ -2,6 +2,7 @@ import type { Request, Response } from 'express'
 
 import { ArquivarTarefa } from '../../../application/use-cases/tarefas/ArquivarTarefa'
 import { AtualizarTarefa } from '../../../application/use-cases/tarefas/AtualizarTarefa'
+import { FecharSprintsVencidos } from '../../../application/use-cases/sprints/FecharSprintsVencidos'
 import { ConcluirTarefa } from '../../../application/use-cases/tarefas/ConcluirTarefa'
 import { CriarTarefa } from '../../../application/use-cases/tarefas/CriarTarefa'
 import { DesarquivarTarefa } from '../../../application/use-cases/tarefas/DesarquivarTarefa'
@@ -10,6 +11,8 @@ import { ListarTarefas } from '../../../application/use-cases/tarefas/ListarTare
 import { MoverTarefa } from '../../../application/use-cases/tarefas/MoverTarefa'
 import { RemoverTarefa } from '../../../application/use-cases/tarefas/RemoverTarefa'
 import { SupabaseAreaRepository } from '../../../infrastructure/supabase/repositories/SupabaseAreaRepository'
+import { SupabaseOcorrenciaRotinaRepository } from '../../../infrastructure/supabase/repositories/SupabaseOcorrenciaRotinaRepository'
+import { SupabaseTarefasDoSprintRepository } from '../../../infrastructure/supabase/repositories/SupabaseTarefasDoSprintRepository'
 import { SupabaseSuperTaskRepository } from '../../../infrastructure/supabase/repositories/SupabaseSuperTaskRepository'
 import { SupabaseSprintRepository } from '../../../infrastructure/supabase/repositories/SupabaseSprintRepository'
 import { SupabaseTarefaRepository } from '../../../infrastructure/supabase/repositories/SupabaseTarefaRepository'
@@ -68,7 +71,18 @@ export const tarefasController = {
   },
 
   async concluir(req: Request, res: Response) {
-    const concluir = new ConcluirTarefa(tarefaRepositorio(req), sprintRepositorio(req), superTaskRepositorio(req))
+    // Reserva do job de fechamento (#71): fecha antes o sprint vencido, para a conclusão não entrar nele.
+    const fecharVencidos = new FecharSprintsVencidos(
+      sprintRepositorio(req),
+      new SupabaseOcorrenciaRotinaRepository(req.supabase!),
+      new SupabaseTarefasDoSprintRepository(req.supabase!),
+    )
+    const concluir = new ConcluirTarefa(
+      tarefaRepositorio(req),
+      sprintRepositorio(req),
+      superTaskRepositorio(req),
+      fecharVencidos,
+    )
     res.json(await concluir.execute(req.usuario!.id, req.params.id))
   },
 

@@ -11,6 +11,9 @@ export interface PlacarComSprint {
   iniciado: boolean
   /** Sprint ainda não começou: rotina calculada da configuração atual. */
   previa: boolean
+  /** Sprint fechado: `placar` é a foto gravada no fechamento (imutável), não um cálculo ao vivo. */
+  fechado: boolean
+  fechadoEm: string | null
   placar: PlacarDoSprint
 }
 
@@ -20,9 +23,21 @@ export class ObterPlacarDoSprint {
     private readonly tarefasRepository: TarefasDoSprintRepository,
   ) {}
 
-  /** Placar ao vivo: recalculado a cada leitura, então acompanha tarefas que entram e saem. */
+  /** Placar ao vivo enquanto o sprint está aberto; depois do fechamento, devolve a foto gravada. */
   async execute(userId: ID, alvo: AlvoDoSprint, agora: Date = new Date()): Promise<PlacarComSprint> {
     const { sprint, iniciado, previa, ocorrencias } = await this.obterSprint.execute(userId, alvo, agora)
+    if (sprint.situacao === 'FECHADO' && sprint.foto) {
+      return {
+        sprintId: sprint.id,
+        inicio: sprint.inicio,
+        fim: sprint.fim,
+        iniciado,
+        previa,
+        fechado: true,
+        fechadoEm: sprint.fechadoEm,
+        placar: sprint.foto,
+      }
+    }
     const tarefas = await this.tarefasRepository.listar(userId, sprint.id, sprint.inicio, sprint.fim)
     return {
       sprintId: sprint.id,
@@ -30,6 +45,8 @@ export class ObterPlacarDoSprint {
       fim: sprint.fim,
       iniciado,
       previa,
+      fechado: false,
+      fechadoEm: null,
       placar: calcularPlacar(ocorrencias, tarefas, sprint.inicio, sprint.fim),
     }
   }

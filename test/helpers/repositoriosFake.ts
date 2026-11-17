@@ -178,6 +178,9 @@ export function criarSprintRepositoryFake() {
   return {
     garantir: vi.fn(),
     marcarRotinaGerada: vi.fn(),
+    listarPendentesDeFechamento: vi.fn(),
+    fechar: vi.fn(),
+    marcarFechamentoAplicado: vi.fn(),
   } satisfies SprintRepository
 }
 

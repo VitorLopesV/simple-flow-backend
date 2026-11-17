@@ -27,6 +27,7 @@ describe('ObterPlacarDoSprint', () => {
           superTask: false,
         },
       ]),
+      devolverNaoConcluidas: vi.fn(),
     }
 
     const resultado = await new ObterPlacarDoSprint(obterSprint, tarefas).execute('u1', 'ATUAL', agora)

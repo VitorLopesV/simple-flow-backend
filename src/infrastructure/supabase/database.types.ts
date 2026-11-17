@@ -460,7 +460,10 @@ export type Database = {
         Row: {
           atualizado_em: string
           criado_em: string
+          fechado_em: string | null
+          fechamento_aplicado_em: string | null
           fim: string
+          foto: Json | null
           id: string
           inicio: string
           rotina_gerada_em: string | null
@@ -470,7 +473,10 @@ export type Database = {
         Insert: {
           atualizado_em?: string
           criado_em?: string
+          fechado_em?: string | null
+          fechamento_aplicado_em?: string | null
           fim: string
+          foto?: Json | null
           id?: string
           inicio: string
           rotina_gerada_em?: string | null
@@ -480,7 +486,10 @@ export type Database = {
         Update: {
           atualizado_em?: string
           criado_em?: string
+          fechado_em?: string | null
+          fechamento_aplicado_em?: string | null
           fim?: string
+          foto?: Json | null
           id?: string
           inicio?: string
           rotina_gerada_em?: string | null
@@ -539,6 +548,7 @@ export type Database = {
           dificuldade: string | null
           hora: string | null
           id: string
+          nao_concluida_no_sprint_de: string | null
           notas: string | null
           prioridade: string | null
           sprint_id: string | null
@@ -557,6 +567,7 @@ export type Database = {
           dificuldade?: string | null
           hora?: string | null
           id?: string
+          nao_concluida_no_sprint_de?: string | null
           notas?: string | null
           prioridade?: string | null
           sprint_id?: string | null
@@ -575,6 +586,7 @@ export type Database = {
           dificuldade?: string | null
           hora?: string | null
           id?: string
+          nao_concluida_no_sprint_de?: string | null
           notas?: string | null
           prioridade?: string | null
           sprint_id?: string | null

@@ -48,4 +48,15 @@ export class SupabaseTarefasDoSprintRepository implements TarefasDoSprintReposit
       ]
     })
   }
+
+  async devolverNaoConcluidas(userId: ID, sprintId: ID, inicio: string): Promise<void> {
+    const { error } = await this.client
+      .from('tarefas')
+      .update({ sprint_id: null, nao_concluida_no_sprint_de: inicio })
+      .eq('user_id', userId)
+      .eq('sprint_id', sprintId)
+      .is('concluida_em', null)
+
+    if (error) throw error
+  }
 }
