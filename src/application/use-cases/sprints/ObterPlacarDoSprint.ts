@@ -14,6 +14,8 @@ export interface PlacarComSprint {
   /** Sprint fechado: `placar` é a foto gravada no fechamento (imutável), não um cálculo ao vivo. */
   fechado: boolean
   fechadoEm: string | null
+  /** Recompensa em jogo: a do sprint ou a padrão (num sprint fechado, a gravada na foto). */
+  recompensa: string | null
   placar: PlacarDoSprint
 }
 
@@ -25,7 +27,7 @@ export class ObterPlacarDoSprint {
 
   /** Placar ao vivo enquanto o sprint está aberto; depois do fechamento, devolve a foto gravada. */
   async execute(userId: ID, alvo: AlvoDoSprint, agora: Date = new Date()): Promise<PlacarComSprint> {
-    const { sprint, iniciado, previa, ocorrencias } = await this.obterSprint.execute(userId, alvo, agora)
+    const { sprint, iniciado, previa, ocorrencias, recompensaEfetiva } = await this.obterSprint.execute(userId, alvo, agora)
     if (sprint.situacao === 'FECHADO' && sprint.foto) {
       return {
         sprintId: sprint.id,
@@ -35,6 +37,7 @@ export class ObterPlacarDoSprint {
         previa,
         fechado: true,
         fechadoEm: sprint.fechadoEm,
+        recompensa: recompensaEfetiva,
         placar: sprint.foto,
       }
     }
@@ -47,6 +50,7 @@ export class ObterPlacarDoSprint {
       previa,
       fechado: false,
       fechadoEm: null,
+      recompensa: recompensaEfetiva,
       placar: calcularPlacar(ocorrencias, tarefas, sprint.inicio, sprint.fim),
     }
   }

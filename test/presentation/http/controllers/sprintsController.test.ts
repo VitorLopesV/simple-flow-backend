@@ -20,6 +20,15 @@ const m = vi.hoisted(() => ({
   executePlacar: vi.fn(),
   ObterPlacar: vi.fn(),
   FecharVencidos: vi.fn(),
+  RepositorioRecompensa: vi.fn(function (client: unknown) { return { repositorio: 'recompensa', client } }),
+  DefinirRecompensa: vi.fn(),
+  executeDefinirRecompensa: vi.fn(),
+  ObterPadrao: vi.fn(),
+  executeObterPadrao: vi.fn(),
+  DefinirPadrao: vi.fn(),
+  executeDefinirPadrao: vi.fn(),
+  Historico: vi.fn(),
+  executeHistorico: vi.fn(),
 }))
 
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseSprintRepository', () => ({ SupabaseSprintRepository: m.RepositorioSprint }))
@@ -32,6 +41,10 @@ vi.mock('../../../../src/application/use-cases/sprints/MoverTarefaNoSprint', () 
 vi.mock('../../../../src/application/use-cases/sprints/RemoverTarefaDoSprint', () => ({ RemoverTarefaDoSprint: m.Remover }))
 vi.mock('../../../../src/application/use-cases/sprints/ObterPlacarDoSprint', () => ({ ObterPlacarDoSprint: m.ObterPlacar }))
 vi.mock('../../../../src/application/use-cases/sprints/FecharSprintsVencidos', () => ({ FecharSprintsVencidos: m.FecharVencidos }))
+vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseRecompensaPadraoRepository', () => ({ SupabaseRecompensaPadraoRepository: m.RepositorioRecompensa }))
+vi.mock('../../../../src/application/use-cases/sprints/DefinirRecompensaDoSprint', () => ({ DefinirRecompensaDoSprint: m.DefinirRecompensa }))
+vi.mock('../../../../src/application/use-cases/sprints/RecompensaPadrao', () => ({ ObterRecompensaPadrao: m.ObterPadrao, DefinirRecompensaPadrao: m.DefinirPadrao }))
+vi.mock('../../../../src/application/use-cases/sprints/ListarHistoricoDeSprints', () => ({ ListarHistoricoDeSprints: m.Historico }))
 vi.mock('../../../../src/application/use-cases/sprints/ObterSprint', () => ({ ObterSprint: m.ObterSprint }))
 
 describe('sprintsController', () => {
@@ -43,6 +56,10 @@ describe('sprintsController', () => {
     m.Adicionar.mockImplementation(function () { return { execute: m.executeAdicionar } })
     m.Mover.mockImplementation(function () { return { execute: m.executeMover } })
     m.Remover.mockImplementation(function () { return { execute: m.executeRemover } })
+    m.DefinirRecompensa.mockImplementation(function () { return { execute: m.executeDefinirRecompensa } })
+    m.ObterPadrao.mockImplementation(function () { return { execute: m.executeObterPadrao } })
+    m.DefinirPadrao.mockImplementation(function () { return { execute: m.executeDefinirPadrao } })
+    m.Historico.mockImplementation(function () { return { execute: m.executeHistorico } })
   })
 
   it.each([
@@ -63,6 +80,7 @@ describe('sprintsController', () => {
       m.RepositorioOcorrencia.mock.results[0]!.value,
       m.RepositorioItem.mock.results[0]!.value,
       m.FecharVencidos.mock.results[0]!.value,
+      expect.objectContaining({ repositorio: 'recompensa' }),
     )
     // Reserva do job de fechamento (#71): sprint, ocorrências e tarefas do sprint, todos com o client da requisição.
     expect(m.FecharVencidos).toHaveBeenCalledTimes(1)
@@ -70,6 +88,7 @@ describe('sprintsController', () => {
       m.RepositorioSprint.mock.results[1]!.value,
       m.RepositorioOcorrencia.mock.results[1]!.value,
       m.RepositorioTarefas.mock.results[0]!.value,
+      expect.objectContaining({ repositorio: 'recompensa' }),
     )
     expect(m.RepositorioTarefas).toHaveBeenCalledWith(req.supabase)
     expect(m.execute).toHaveBeenCalledWith(USUARIO.id, alvo)
@@ -147,5 +166,61 @@ describe('sprintsController', () => {
 
     await expect(sprintsController.removerTarefa(criarRequisicao({ params: { id: 't' } }), res)).rejects.toBe(erro)
     expect(res.json).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['recompensaAtual', 'ATUAL'],
+    ['recompensaProximo', 'PROXIMO'],
+  ] as const)('%s: define a recompensa do sprint pelo use-case e responde o resultado', async (acao, alvo) => {
+    m.executeDefinirRecompensa.mockResolvedValue({ recompensa: 'Pizza' })
+    const req = criarRequisicao({ body: { recompensa: 'Pizza' } })
+    const res = criarResposta()
+
+    await sprintsController[acao](req, res)
+
+    expect(m.RepositorioRecompensa).toHaveBeenCalledWith(req.supabase)
+    expect(m.DefinirRecompensa).toHaveBeenCalledWith(
+      expect.objectContaining({ execute: m.execute }),
+      m.RepositorioSprint.mock.results.at(-1)!.value,
+      expect.objectContaining({ repositorio: 'recompensa' }),
+    )
+    expect(m.executeDefinirRecompensa).toHaveBeenCalledWith(USUARIO.id, alvo, 'Pizza')
+    expect(res.json).toHaveBeenCalledWith({ recompensa: 'Pizza' })
+  })
+
+  it('recompensaProximo: propaga o 409 de sprint fechado sem responder', async () => {
+    const erro = new Error('fechado')
+    m.executeDefinirRecompensa.mockRejectedValue(erro)
+    const res = criarResposta()
+
+    await expect(sprintsController.recompensaProximo(criarRequisicao({ body: { recompensa: null } }), res)).rejects.toBe(erro)
+    expect(res.json).not.toHaveBeenCalled()
+  })
+
+  it('recompensa padrão: lê e grava com o repositório da requisição', async () => {
+    m.executeObterPadrao.mockResolvedValue({ recompensaPadrao: 'Cinema' })
+    m.executeDefinirPadrao.mockResolvedValue({ recompensaPadrao: 'Pizza' })
+    const res = criarResposta()
+    const resGravar = criarResposta()
+
+    await sprintsController.obterRecompensaPadrao(criarRequisicao(), res)
+    await sprintsController.definirRecompensaPadrao(criarRequisicao({ body: { recompensaPadrao: 'Pizza' } }), resGravar)
+
+    expect(m.executeObterPadrao).toHaveBeenCalledWith(USUARIO.id)
+    expect(res.json).toHaveBeenCalledWith({ recompensaPadrao: 'Cinema' })
+    expect(m.executeDefinirPadrao).toHaveBeenCalledWith(USUARIO.id, 'Pizza')
+    expect(resGravar.json).toHaveBeenCalledWith({ recompensaPadrao: 'Pizza' })
+  })
+
+  it('historico: repassa page e pageSize já validados', async () => {
+    m.executeHistorico.mockResolvedValue({ items: [] })
+    const req = criarRequisicao({ query: { page: 2, pageSize: 5 } as never })
+    const res = criarResposta()
+
+    await sprintsController.historico(req, res)
+
+    expect(m.Historico).toHaveBeenCalledWith(m.RepositorioSprint.mock.results.at(-1)!.value)
+    expect(m.executeHistorico).toHaveBeenCalledWith(USUARIO.id, 2, 5)
+    expect(res.json).toHaveBeenCalledWith({ items: [] })
   })
 })

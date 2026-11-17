@@ -7,9 +7,14 @@ export interface OcorrenciaParaPlacar {
 }
 
 /** Sábado (6) e domingo (0) nunca pontuam. */
-function ehDiaUtil(dataIso: string): boolean {
+export function ehDiaUtil(dataIso: string): boolean {
   const dia = new Date(`${dataIso}T00:00:00Z`).getUTCDay()
   return dia >= 1 && dia <= 5
+}
+
+/** Tarefas que pontuam no sprint: sem Super task, em dia útil e dentro da semana. */
+export function tarefasPontuaveis(tarefas: TarefaDoSprint[], inicio: string, fim: string): TarefaDoSprint[] {
+  return tarefas.filter((t) => !t.superTask && ehDiaUtil(t.dia) && t.dia >= inicio && t.dia <= fim)
 }
 
 /**
@@ -38,7 +43,7 @@ export function calcularPlacar(
     feitos: diasCumpridos * pontosPorDia,
   }
 
-  const pontuaveis = tarefas.filter((t) => !t.superTask && ehDiaUtil(t.dia) && t.dia >= inicio && t.dia <= fim)
+  const pontuaveis = tarefasPontuaveis(tarefas, inicio, fim)
   const concluidas = pontuaveis.filter((t) => t.concluida)
   const placarTarefas = {
     quantidade: pontuaveis.length,

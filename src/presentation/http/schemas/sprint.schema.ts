@@ -10,3 +10,30 @@ export const adicionarTarefaAoSprintSchema = z.object({
 })
 
 export const moverTarefaNoSprintSchema = z.object({ dia })
+
+export const LIMITE_RECOMPENSA = 120
+export const LIMITE_MAXIMO_DO_HISTORICO = 50
+
+const MENSAGEM_RECOMPENSA = `Recompensa inválida: use um texto de até ${LIMITE_RECOMPENSA} caracteres.`
+
+/** Texto aparado; vazio vira `null` (limpa a recompensa). */
+const recompensa = z
+  .string({ message: MENSAGEM_RECOMPENSA })
+  .max(LIMITE_RECOMPENSA * 4, MENSAGEM_RECOMPENSA)
+  .nullable()
+  .transform((texto) => (texto === null || texto.trim() === '' ? null : texto.trim()))
+  .refine((texto) => texto === null || texto.length <= LIMITE_RECOMPENSA, MENSAGEM_RECOMPENSA)
+
+export const recompensaDoSprintSchema = z.object({ recompensa })
+
+export const recompensaPadraoSchema = z.object({ recompensaPadrao: recompensa })
+
+export const historicoQuerySchema = z.object({
+  page: z.coerce.number({ message: 'Página inválida.' }).int('Página inválida.').min(1, 'Página inválida.').default(1),
+  pageSize: z.coerce
+    .number({ message: 'Tamanho de página inválido.' })
+    .int('Tamanho de página inválido.')
+    .min(1, 'Tamanho de página inválido.')
+    .max(LIMITE_MAXIMO_DO_HISTORICO, `Tamanho de página inválido: no máximo ${LIMITE_MAXIMO_DO_HISTORICO}.`)
+    .default(10),
+})

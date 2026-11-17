@@ -11,6 +11,7 @@ const SPRINT = {
   fim: '2026-11-20',
   situacao: 'ABERTO',
   rotinaGeradaEm: null,
+  recompensa: null,
   fechadoEm: null,
   foto: null,
   fechamentoAplicadoEm: null,
@@ -117,5 +118,39 @@ describe('SupabaseSprintRepository', () => {
     expect(chamadas).toContainEqual(['eq', 'id', 'spr-1'])
     expect(chamadas).toContainEqual(['eq', 'user_id', USER_ID])
     expect(chamadas).toContainEqual(['is', 'fechamento_aplicado_em', null])
+  })
+
+  it('definirRecompensa: só em sprint ABERTO do usuário; false se já estava fechado; propaga erro', async () => {
+    const fake = criarSupabaseFake({ sprints: [ok([{ id: 'spr-1' }]), ok([]), falha(ERRO)] })
+    const repositorio = new SupabaseSprintRepository(fake.client)
+
+    expect(await repositorio.definirRecompensa(USER_ID, 'spr-1', 'Pizza')).toBe(true)
+    expect(await repositorio.definirRecompensa(USER_ID, 'spr-1', null)).toBe(false)
+    await expect(repositorio.definirRecompensa(USER_ID, 'spr-1', 'x')).rejects.toBe(ERRO)
+
+    const chamadas = fake.consultas[0]!.chamadas
+    expect(chamadas).toContainEqual(['update', { recompensa: 'Pizza' }])
+    expect(chamadas).toContainEqual(['eq', 'id', 'spr-1'])
+    expect(chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    expect(chamadas).toContainEqual(['eq', 'situacao', 'ABERTO'])
+  })
+
+  it('listarFechados: só FECHADOS com foto do usuário, mais recente primeiro, paginado, com o total', async () => {
+    const fake = criarSupabaseFake({
+      sprints: [{ data: [linhaSprint({ id: 'a', situacao: 'FECHADO' })], error: null, count: 23 } as never, falha(ERRO)],
+    })
+    const repositorio = new SupabaseSprintRepository(fake.client)
+
+    const pagina = await repositorio.listarFechados(USER_ID, 3, 10)
+    await expect(repositorio.listarFechados(USER_ID, 1, 10)).rejects.toBe(ERRO)
+
+    expect(pagina.total).toBe(23)
+    expect(pagina.sprints.map((s) => s.id)).toEqual(['a'])
+    const chamadas = fake.consultas[0]!.chamadas
+    expect(chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+    expect(chamadas).toContainEqual(['eq', 'situacao', 'FECHADO'])
+    expect(chamadas).toContainEqual(['not', 'foto', 'is', null])
+    expect(chamadas).toContainEqual(['order', 'inicio', { ascending: false }])
+    expect(chamadas).toContainEqual(['range', 20, 29])
   })
 })

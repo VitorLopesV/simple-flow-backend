@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-import type { PlacarDoSprint } from '../../../domain/entities/PlacarDoSprint'
+import type { FotoDoSprint } from '../../../domain/entities/PlacarDoSprint'
 import type { Sprint, SituacaoSprint } from '../../../domain/entities/Sprint'
 import type { SprintRepository } from '../../../domain/repositories/SprintRepository'
 import type { ID } from '../../../shared/types/common'
@@ -16,8 +16,9 @@ function paraSprint(row: SprintRow): Sprint {
     situacao: row.situacao as SituacaoSprint,
     rotinaGeradaEm: row.rotina_gerada_em,
     criadoEm: row.criado_em,
+    recompensa: row.recompensa,
     fechadoEm: row.fechado_em,
-    foto: row.foto as unknown as PlacarDoSprint | null,
+    foto: row.foto as unknown as FotoDoSprint | null,
     fechamentoAplicadoEm: row.fechamento_aplicado_em,
   }
 }
@@ -68,7 +69,7 @@ export class SupabaseSprintRepository implements SprintRepository {
     return data.map(paraSprint)
   }
 
-  async fechar(userId: ID, id: ID, foto: PlacarDoSprint, fechadoEm: string): Promise<boolean> {
+  async fechar(userId: ID, id: ID, foto: FotoDoSprint, fechadoEm: string): Promise<boolean> {
     // `situacao = 'ABERTO'` no filtro: quem chegar depois (job, outra aba) não regrava a foto.
     const { data, error } = await this.supabase
       .from('sprints')
@@ -91,5 +92,34 @@ export class SupabaseSprintRepository implements SprintRepository {
       .is('fechamento_aplicado_em', null)
 
     if (error) throw error
+  }
+
+  async definirRecompensa(userId: ID, id: ID, recompensa: string | null): Promise<boolean> {
+    // `situacao = 'ABERTO'` no filtro: sprint fechado é imutável, mesmo se fechou entre a leitura e a escrita.
+    const { data, error } = await this.supabase
+      .from('sprints')
+      .update({ recompensa })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .eq('situacao', 'ABERTO')
+      .select('id')
+
+    if (error) throw error
+    return data.length > 0
+  }
+
+  async listarFechados(userId: ID, page: number, pageSize: number): Promise<{ sprints: Sprint[]; total: number }> {
+    const de = (page - 1) * pageSize
+    const { data, error, count } = await this.supabase
+      .from('sprints')
+      .select('*', { count: 'exact' })
+      .eq('user_id', userId)
+      .eq('situacao', 'FECHADO')
+      .not('foto', 'is', null)
+      .order('inicio', { ascending: false })
+      .range(de, de + pageSize - 1)
+
+    if (error) throw error
+    return { sprints: data.map(paraSprint), total: count ?? 0 }
   }
 }

@@ -2,7 +2,9 @@ import type { OcorrenciaPlanejada, OcorrenciaRotina } from '../../../domain/enti
 import type { Sprint } from '../../../domain/entities/Sprint'
 import type { ItemRotinaRepository } from '../../../domain/repositories/ItemRotinaRepository'
 import type { OcorrenciaRotinaRepository } from '../../../domain/repositories/OcorrenciaRotinaRepository'
+import type { RecompensaPadraoRepository } from '../../../domain/repositories/RecompensaPadraoRepository'
 import type { SprintRepository } from '../../../domain/repositories/SprintRepository'
+import { recompensaEfetiva } from '../../../domain/services/fotoDoSprint'
 import { calcularOcorrenciasDoSprint } from '../../../domain/services/ocorrenciasDoSprint'
 import type { ID } from '../../../shared/types/common'
 import { addDias, dataAtual, segundaDaSemana } from '../../../shared/utils/periodo'
@@ -25,6 +27,10 @@ export interface SprintComRotina {
   ocorrencias: OcorrenciaDoSprint[]
   /** Sábado/domingo do modo "a cada N dias": fora do sprint e sem pontos. */
   lembretes: OcorrenciaDoSprint[]
+  /** Recompensa padrão do usuário (#72). */
+  recompensaPadrao: string | null
+  /** A que vale: a do sprint ou a padrão; num sprint fechado, a que a foto gravou no fechamento. */
+  recompensaEfetiva: string | null
 }
 
 function daPrevia(lista: OcorrenciaPlanejada[]): OcorrenciaDoSprint[] {
@@ -51,6 +57,8 @@ export class ObterSprint {
     private readonly itemRotinaRepository: ItemRotinaRepository,
     /** Reserva do job de fechamento (#71): fecha o sprint vencido no primeiro acesso do usuário. */
     private readonly fecharVencidos?: Pick<FecharSprintsVencidos, 'execute'>,
+    /** Recompensa padrão (#72); sem ele, `recompensaPadrao` vem nulo. */
+    private readonly padraoRepository?: Pick<RecompensaPadraoRepository, 'obter'>,
   ) {}
 
   /**
@@ -60,6 +68,11 @@ export class ObterSprint {
    */
   async execute(userId: ID, alvo: AlvoDoSprint, agora: Date = new Date()): Promise<SprintComRotina> {
     await this.fecharVencidos?.execute(userId, agora)
+    const padrao = (await this.padraoRepository?.obter(userId)) ?? null
+    const comRecompensa = (sprint: Sprint) => ({
+      recompensaPadrao: padrao,
+      recompensaEfetiva: sprint.situacao === 'FECHADO' ? (sprint.foto?.recompensa ?? null) : recompensaEfetiva(sprint.recompensa, padrao),
+    })
 
     const hoje = dataAtual(agora)
     const segunda = segundaDaSemana(hoje)
@@ -73,7 +86,14 @@ export class ObterSprint {
       const { ocorrencias, lembretes } = calcularOcorrenciasDoSprint(itens, inicio)
 
       if (!iniciado) {
-        return { sprint, iniciado, previa: true, ocorrencias: daPrevia(ocorrencias), lembretes: daPrevia(lembretes) }
+        return {
+          sprint,
+          iniciado,
+          previa: true,
+          ocorrencias: daPrevia(ocorrencias),
+          lembretes: daPrevia(lembretes),
+          ...comRecompensa(sprint),
+        }
       }
 
       // Idempotente por chave única: um acesso concorrente ou uma falha antes do marcar não duplica.
@@ -90,6 +110,7 @@ export class ObterSprint {
       previa: false,
       ocorrencias: gravadas.filter((o) => !o.lembrete).map(gravada),
       lembretes: gravadas.filter((o) => o.lembrete).map(gravada),
+      ...comRecompensa(sprint),
     }
   }
 }

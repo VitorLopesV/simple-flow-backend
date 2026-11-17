@@ -28,7 +28,9 @@ describe('SupabaseTarefasDoSprintRepository', () => {
     expect(tarefas).toEqual([
       {
         id: 't1',
+        titulo: 'Pintar a casa',
         dia: '2026-11-18',
+        hora: null,
         tempoEstimado: 60,
         dificuldade: 'DIFICIL',
         prioridade: 'ALTA',
