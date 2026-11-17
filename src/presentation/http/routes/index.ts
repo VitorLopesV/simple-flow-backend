@@ -1,5 +1,6 @@
 import { Router } from 'express'
 
+import { alertasRoutes } from './alertas.routes'
 import { areasRoutes } from './areas.routes'
 import { authRoutes } from './auth.routes'
 import { cartoesRoutes } from './cartoes.routes'
@@ -33,4 +34,5 @@ routes.use('/cartoes', cartoesRoutes)
 routes.use('/faturas', faturasRoutes)
 routes.use('/dashboard', dashboardRoutes)
 routes.use('/home', homeRoutes)
+routes.use('/alertas', alertasRoutes)
 routes.use('/navegacao', navegacaoRoutes)
