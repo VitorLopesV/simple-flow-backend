@@ -13,6 +13,8 @@ const m = vi.hoisted(() => ({
   executeDesmarcar: vi.fn(),
   executeConcluirOcorrencia: vi.fn(),
   ConcluirTarefa: vi.fn(),
+  FecharSprintsVencidos: vi.fn(),
+  RepositorioTarefasDoSprint: vi.fn(function (client: unknown) { return { repositorio: 'tarefasDoSprint', client } }),
   DesmarcarConclusaoTarefa: vi.fn(),
   ConcluirOcorrenciaRotina: vi.fn(),
 }))
@@ -21,6 +23,8 @@ vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseTarefaRepo
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseSprintRepository', () => ({ SupabaseSprintRepository: m.RepositorioSprint }))
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseSuperTaskRepository', () => ({ SupabaseSuperTaskRepository: m.RepositorioSuperTask }))
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseOcorrenciaRotinaRepository', () => ({ SupabaseOcorrenciaRotinaRepository: m.RepositorioOcorrencia }))
+vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseTarefasDoSprintRepository', () => ({ SupabaseTarefasDoSprintRepository: m.RepositorioTarefasDoSprint }))
+vi.mock('../../../../src/application/use-cases/sprints/FecharSprintsVencidos', () => ({ FecharSprintsVencidos: m.FecharSprintsVencidos }))
 vi.mock('../../../../src/application/use-cases/tarefas/ConcluirTarefa', () => ({ ConcluirTarefa: m.ConcluirTarefa }))
 vi.mock('../../../../src/application/use-cases/tarefas/DesmarcarConclusaoTarefa', () => ({ DesmarcarConclusaoTarefa: m.DesmarcarConclusaoTarefa }))
 vi.mock('../../../../src/application/use-cases/sprints/ConcluirOcorrenciaRotina', () => ({ ConcluirOcorrenciaRotina: m.ConcluirOcorrenciaRotina }))
@@ -28,6 +32,7 @@ vi.mock('../../../../src/application/use-cases/sprints/ConcluirOcorrenciaRotina'
 describe('controllers de conclusão', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    m.FecharSprintsVencidos.mockImplementation(function () { return { reserva: 'fecharVencidos' } })
     m.ConcluirTarefa.mockImplementation(function () { return { execute: m.executeConcluirTarefa } })
     m.DesmarcarConclusaoTarefa.mockImplementation(function () { return { execute: m.executeDesmarcar } })
     m.ConcluirOcorrenciaRotina.mockImplementation(function () { return { execute: m.executeConcluirOcorrencia } })
@@ -47,7 +52,15 @@ describe('controllers de conclusão', () => {
       m.RepositorioTarefa.mock.results[0]!.value,
       m.RepositorioSprint.mock.results[0]!.value,
       m.RepositorioSuperTask.mock.results[0]!.value,
+      m.FecharSprintsVencidos.mock.results[0]!.value,
     )
+    // Reserva do fechamento (#71) montada com o client da requisição.
+    expect(m.FecharSprintsVencidos).toHaveBeenCalledWith(
+      m.RepositorioSprint.mock.results[0]!.value,
+      m.RepositorioOcorrencia.mock.results[0]!.value,
+      m.RepositorioTarefasDoSprint.mock.results[0]!.value,
+    )
+    expect(m.RepositorioTarefasDoSprint).toHaveBeenCalledWith(req.supabase)
     expect(m.executeConcluirTarefa).toHaveBeenCalledWith(USUARIO.id, 't')
     expect(res.json).toHaveBeenCalledWith({ id: 't', concluida: true })
   })

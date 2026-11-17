@@ -6,6 +6,7 @@ import type { SprintRepository } from '../../../domain/repositories/SprintReposi
 import { calcularOcorrenciasDoSprint } from '../../../domain/services/ocorrenciasDoSprint'
 import type { ID } from '../../../shared/types/common'
 import { addDias, dataAtual, segundaDaSemana } from '../../../shared/utils/periodo'
+import type { FecharSprintsVencidos } from './FecharSprintsVencidos'
 
 export type AlvoDoSprint = 'ATUAL' | 'PROXIMO'
 
@@ -48,6 +49,8 @@ export class ObterSprint {
     private readonly sprintRepository: SprintRepository,
     private readonly ocorrenciaRepository: OcorrenciaRotinaRepository,
     private readonly itemRotinaRepository: ItemRotinaRepository,
+    /** Reserva do job de fechamento (#71): fecha o sprint vencido no primeiro acesso do usuário. */
+    private readonly fecharVencidos?: Pick<FecharSprintsVencidos, 'execute'>,
   ) {}
 
   /**
@@ -56,6 +59,8 @@ export class ObterSprint {
    * disso o planejamento recebe só uma prévia calculada da configuração atual.
    */
   async execute(userId: ID, alvo: AlvoDoSprint, agora: Date = new Date()): Promise<SprintComRotina> {
+    await this.fecharVencidos?.execute(userId, agora)
+
     const hoje = dataAtual(agora)
     const segunda = segundaDaSemana(hoje)
     const inicio = alvo === 'ATUAL' ? segunda : addDias(segunda, 7)

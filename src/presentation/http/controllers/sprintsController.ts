@@ -2,6 +2,7 @@ import type { Request, Response } from 'express'
 
 import { AdicionarTarefaAoSprint } from '../../../application/use-cases/sprints/AdicionarTarefaAoSprint'
 import { ConcluirOcorrenciaRotina } from '../../../application/use-cases/sprints/ConcluirOcorrenciaRotina'
+import { FecharSprintsVencidos } from '../../../application/use-cases/sprints/FecharSprintsVencidos'
 import { MoverTarefaNoSprint } from '../../../application/use-cases/sprints/MoverTarefaNoSprint'
 import { ObterPlacarDoSprint } from '../../../application/use-cases/sprints/ObterPlacarDoSprint'
 import { ObterSprint } from '../../../application/use-cases/sprints/ObterSprint'
@@ -12,11 +13,20 @@ import { SupabaseSprintRepository } from '../../../infrastructure/supabase/repos
 import { SupabaseTarefaRepository } from '../../../infrastructure/supabase/repositories/SupabaseTarefaRepository'
 import { SupabaseTarefasDoSprintRepository } from '../../../infrastructure/supabase/repositories/SupabaseTarefasDoSprintRepository'
 
+function fecharVencidos(req: Request) {
+  return new FecharSprintsVencidos(
+    new SupabaseSprintRepository(req.supabase!),
+    new SupabaseOcorrenciaRotinaRepository(req.supabase!),
+    new SupabaseTarefasDoSprintRepository(req.supabase!),
+  )
+}
+
 function obterSprint(req: Request) {
   return new ObterSprint(
     new SupabaseSprintRepository(req.supabase!),
     new SupabaseOcorrenciaRotinaRepository(req.supabase!),
     new SupabaseItemRotinaRepository(req.supabase!),
+    fecharVencidos(req),
   )
 }
 

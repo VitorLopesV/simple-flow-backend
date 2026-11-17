@@ -19,6 +19,7 @@ const m = vi.hoisted(() => ({
   Remover: vi.fn(),
   executePlacar: vi.fn(),
   ObterPlacar: vi.fn(),
+  FecharVencidos: vi.fn(),
 }))
 
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseSprintRepository', () => ({ SupabaseSprintRepository: m.RepositorioSprint }))
@@ -30,11 +31,13 @@ vi.mock('../../../../src/application/use-cases/sprints/AdicionarTarefaAoSprint',
 vi.mock('../../../../src/application/use-cases/sprints/MoverTarefaNoSprint', () => ({ MoverTarefaNoSprint: m.Mover }))
 vi.mock('../../../../src/application/use-cases/sprints/RemoverTarefaDoSprint', () => ({ RemoverTarefaDoSprint: m.Remover }))
 vi.mock('../../../../src/application/use-cases/sprints/ObterPlacarDoSprint', () => ({ ObterPlacarDoSprint: m.ObterPlacar }))
+vi.mock('../../../../src/application/use-cases/sprints/FecharSprintsVencidos', () => ({ FecharSprintsVencidos: m.FecharVencidos }))
 vi.mock('../../../../src/application/use-cases/sprints/ObterSprint', () => ({ ObterSprint: m.ObterSprint }))
 
 describe('sprintsController', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    m.FecharVencidos.mockImplementation(function (...deps: unknown[]) { return { reserva: 'fecharVencidos', deps } })
     m.ObterSprint.mockImplementation(function () { return { execute: m.execute } })
     m.ObterPlacar.mockImplementation(function () { return { execute: m.executePlacar } })
     m.Adicionar.mockImplementation(function () { return { execute: m.executeAdicionar } })
@@ -59,7 +62,16 @@ describe('sprintsController', () => {
       m.RepositorioSprint.mock.results[0]!.value,
       m.RepositorioOcorrencia.mock.results[0]!.value,
       m.RepositorioItem.mock.results[0]!.value,
+      m.FecharVencidos.mock.results[0]!.value,
     )
+    // Reserva do job de fechamento (#71): sprint, ocorrências e tarefas do sprint, todos com o client da requisição.
+    expect(m.FecharVencidos).toHaveBeenCalledTimes(1)
+    expect(m.FecharVencidos).toHaveBeenCalledWith(
+      m.RepositorioSprint.mock.results[1]!.value,
+      m.RepositorioOcorrencia.mock.results[1]!.value,
+      m.RepositorioTarefas.mock.results[0]!.value,
+    )
+    expect(m.RepositorioTarefas).toHaveBeenCalledWith(req.supabase)
     expect(m.execute).toHaveBeenCalledWith(USUARIO.id, alvo)
     expect(res.json).toHaveBeenCalledWith({ sprint: { id: 's' } })
   })

@@ -39,6 +39,7 @@ function paraTarefa(row: TarefaRow): Tarefa {
         { dia: row.dia, hora: row.hora, tempoEstimado: row.tempo_estimado_minutos },
         new Date(row.concluida_em),
       ),
+    naoConcluidaNoSprintDe: row.nao_concluida_no_sprint_de,
     arquivada: row.arquivada_em !== null,
     arquivadaEm: row.arquivada_em,
     criadoEm: row.criado_em,

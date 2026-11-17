@@ -23,6 +23,7 @@ const TAREFA = {
   concluidaEm: null,
   concluida: false,
   atrasada: false,
+  naoConcluidaNoSprintDe: null,
   arquivada: false,
   arquivadaEm: null,
   criadoEm: '2026-01-01T00:00:00.000Z',
@@ -86,6 +87,15 @@ describe('SupabaseTarefaRepository', () => {
     await expect(repositorio.buscarPorId(USER_ID, ID)).resolves.toEqual(TAREFA)
     await expect(repositorio.buscarPorId(USER_ID, ID)).resolves.toBeNull()
     expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+  })
+
+  it('expõe a marca "não concluída no sprint de" (YYYY-MM-DD do início do sprint) devolvida pelo fechamento', async () => {
+    const { repositorio } = montar({ tarefas: [ok(linhaTarefa({ nao_concluida_no_sprint_de: '2026-11-16' }))] })
+
+    await expect(repositorio.buscarPorId(USER_ID, ID)).resolves.toMatchObject({
+      naoConcluidaNoSprintDe: '2026-11-16',
+      sprintId: null,
+    })
   })
 
   it('buscarPorId: propaga o erro do banco', async () => {

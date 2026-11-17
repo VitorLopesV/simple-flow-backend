@@ -35,7 +35,7 @@ export class AtualizarTarefa {
     if (tarefaTravada(tarefa, hoje)) throw new ConflictError(MENSAGEM_TAREFA_TRAVADA)
 
     if (tarefa.sprintId) {
-      const motivo = motivoDeRecusa(edicao, hoje)
+      const motivo = motivoDeRecusa(edicao, hoje, agora)
       if (motivo) throw new ValidationError(`${motivo} Para tirar a tarefa do sprint, remova-a do sprint.`)
 
       if (inicioDoSprintDoDia(edicao.dia!) === inicioDoSprintDoDia(tarefa.dia!)) {
@@ -47,7 +47,7 @@ export class AtualizarTarefa {
 
     // Só dar um dia novo coloca no sprint: salvar de novo o mesmo dia não desfaz uma remoção manual.
     const entraNoSprint =
-      !tarefa.arquivada && edicao.dia !== null && edicao.dia !== tarefa.dia && motivoDeRecusa(edicao, hoje) === null
+      !tarefa.arquivada && edicao.dia !== null && edicao.dia !== tarefa.dia && motivoDeRecusa(edicao, hoje, agora) === null
     if (!entraNoSprint) return this.tarefaRepository.atualizar(userId, id, edicao)
 
     const sprintId = await garantirSprintDoDia(this.sprintRepository, userId, edicao.dia!)

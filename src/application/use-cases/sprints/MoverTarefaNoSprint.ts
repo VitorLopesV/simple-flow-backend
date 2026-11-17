@@ -23,7 +23,7 @@ export class MoverTarefaNoSprint {
     if (tarefaTravada(tarefa, hoje)) throw new ConflictError(MENSAGEM_TAREFA_TRAVADA)
     if (!tarefa.sprintId) throw new ConflictError('A tarefa não está no sprint. Adicione-a antes de mudar o dia.')
 
-    const motivo = motivoDeRecusa({ ...tarefa, dia }, hoje)
+    const motivo = motivoDeRecusa({ ...tarefa, dia }, hoje, agora)
     if (motivo) throw new ValidationError(motivo)
 
     const sprintId = await garantirSprintDoDia(this.sprintRepository, userId, dia)

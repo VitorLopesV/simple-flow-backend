@@ -38,6 +38,7 @@ const TAREFA: Tarefa = {
   atrasada: false,
   arquivada: false,
   arquivadaEm: null,
+  naoConcluidaNoSprintDe: null,
   criadoEm: '2026-01-01T00:00:00.000Z',
 }
 const ARQUIVADA: Tarefa = { ...TAREFA, arquivada: true, arquivadaEm: '2026-02-01T00:00:00.000Z' }

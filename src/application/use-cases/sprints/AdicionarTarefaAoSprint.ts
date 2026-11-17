@@ -29,7 +29,7 @@ export class AdicionarTarefaAoSprint {
     if (tarefa.arquivada) throw new ValidationError('Tarefas arquivadas não entram no sprint.')
 
     const diaFinal = dia ?? tarefa.dia
-    const motivo = motivoDeRecusa({ ...tarefa, dia: diaFinal }, hoje)
+    const motivo = motivoDeRecusa({ ...tarefa, dia: diaFinal }, hoje, agora)
     if (motivo) throw new ValidationError(motivo)
 
     const sprintId = await garantirSprintDoDia(this.sprintRepository, userId, diaFinal!)

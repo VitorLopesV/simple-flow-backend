@@ -30,13 +30,18 @@ export interface Tarefa {
   concluida: boolean
   /** Concluída fora do prazo (vale 20% dos pontos); sempre false enquanto não concluída. Ver `tarefaAtrasada`. */
   atrasada: boolean
+  /**
+   * Segunda-feira (`YYYY-MM-DD`) do sprint em que a tarefa ficou sem concluir e foi devolvida à área pelo
+   * fechamento (#71); o front mostra "não concluída no sprint de DD/MM". É histórico: não é limpo ao replanejar.
+   */
+  naoConcluidaNoSprintDe: string | null
   arquivada: boolean
   arquivadaEm: string | null
   criadoEm: string
 }
 
 /** Campos editáveis; a área muda só por `MoverTarefa`, que valida o destino. */
-export type TarefaEdicao = Omit<Tarefa, 'id' | 'areaId' | 'sprintId' | 'superTaskId' | 'concluidaEm' | 'concluida' | 'atrasada' | 'arquivada' | 'arquivadaEm' | 'criadoEm'>
+export type TarefaEdicao = Omit<Tarefa, 'id' | 'areaId' | 'sprintId' | 'superTaskId' | 'concluidaEm' | 'concluida' | 'atrasada' | 'naoConcluidaNoSprintDe' | 'arquivada' | 'arquivadaEm' | 'criadoEm'>
 
 export type TarefaPayload = TarefaEdicao & Pick<Tarefa, 'areaId'>
 

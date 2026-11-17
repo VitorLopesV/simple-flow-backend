@@ -44,6 +44,7 @@ const TAREFA: Tarefa = {
   atrasada: false,
   arquivada: false,
   arquivadaEm: null,
+  naoConcluidaNoSprintDe: null,
   criadoEm: '2026-01-01T00:00:00.000Z',
 }
 const CONCLUIDA: Tarefa = { ...TAREFA, dia: '2026-11-18', sprintId: 'spr-1', concluida: true, concluidaEm: '2026-11-18T14:00:00.000Z' }

@@ -48,6 +48,7 @@ const COMPLETA: Tarefa = {
   atrasada: false,
   arquivada: false,
   arquivadaEm: null,
+  naoConcluidaNoSprintDe: null,
   criadoEm: '2026-01-01T00:00:00.000Z',
 }
 const noSprint = (dia: string, extra: Partial<Tarefa> = {}): Tarefa => ({ ...COMPLETA, dia, sprintId: 'spr-atual', ...extra })

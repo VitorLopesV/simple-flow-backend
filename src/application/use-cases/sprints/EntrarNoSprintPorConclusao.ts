@@ -35,7 +35,7 @@ export class EntrarNoSprintPorConclusao {
     if (tarefa.arquivada) return { tarefa, entrou: false, motivo: 'Tarefas arquivadas não entram no sprint.' }
 
     const hoje = dataAtual(agora)
-    const motivo = motivoDeRecusa({ ...tarefa, dia: hoje }, hoje)
+    const motivo = motivoDeRecusa({ ...tarefa, dia: hoje }, hoje, agora)
     if (motivo) return { tarefa, entrou: false, motivo }
 
     const sprintId = await garantirSprintDoDia(this.sprintRepository, userId, hoje)
