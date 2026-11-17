@@ -11,6 +11,11 @@ export interface AreaRepository {
   atualizar(userId: ID, id: ID, payload: AreaPayload): Promise<Area>
   remover(userId: ID, id: ID): Promise<void>
   contarTarefas(userId: ID, areaId: ID): Promise<number>
+  /**
+   * Tarefas da área (inclusive filhas de Super task e concluídas) cujo sprint ainda está ABERTO (#73).
+   * Enquanto houver alguma, a área não pode ser excluída, nem movendo nem excluindo as tarefas.
+   */
+  contarTarefasNoSprintAberto(userId: ID, areaId: ID): Promise<number>
   moverTarefas(userId: ID, deAreaId: ID, paraAreaId: ID): Promise<void>
   removerTarefas(userId: ID, areaId: ID): Promise<void>
 }

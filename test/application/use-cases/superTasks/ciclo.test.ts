@@ -169,7 +169,7 @@ describe('conclusão automática por outros caminhos', () => {
     await adicionar('b')
     await concluir('a', T1)
 
-    await new RemoverTarefa(c.tarefas, c.superTasks).execute(USER_ID, 'b', T2)
+    await new RemoverTarefa(c.tarefas, c.superTasks, c.sprints).execute(USER_ID, 'b', T2)
 
     expect(await obter()).toMatchObject({ totalFilhas: 1, progresso: 100, concluida: true })
   })
@@ -177,13 +177,13 @@ describe('conclusão automática por outros caminhos', () => {
   it('excluir a única filha de todas deixa 0% e não iniciada, sem concluir', async () => {
     await adicionar('a')
 
-    await new RemoverTarefa(c.tarefas, c.superTasks).execute(USER_ID, 'a', T2)
+    await new RemoverTarefa(c.tarefas, c.superTasks, c.sprints).execute(USER_ID, 'a', T2)
 
     expect(await obter()).toMatchObject({ totalFilhas: 0, progresso: 0, estado: 'NAO_INICIADA', concluida: false })
   })
 
   it('excluir tarefa avulsa não mexe na Super task', async () => {
-    await new RemoverTarefa(c.tarefas, c.superTasks).execute(USER_ID, 'c', T2)
+    await new RemoverTarefa(c.tarefas, c.superTasks, c.sprints).execute(USER_ID, 'c', T2)
     expect(c.superTasks.buscarPorId).not.toHaveBeenCalled()
   })
 

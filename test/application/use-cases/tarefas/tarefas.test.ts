@@ -180,7 +180,7 @@ describe('ArquivarTarefa', () => {
     repositorio.buscarPorId.mockResolvedValue(TAREFA)
     repositorio.definirArquivamento.mockResolvedValue(ARQUIVADA)
 
-    await expect(new ArquivarTarefa(repositorio).execute(USER_ID, 'tar-1')).resolves.toBe(ARQUIVADA)
+    await expect(new ArquivarTarefa(repositorio, criarSprintRepositoryFake()).execute(USER_ID, 'tar-1')).resolves.toBe(ARQUIVADA)
     expect(repositorio.definirArquivamento).toHaveBeenCalledWith(USER_ID, 'tar-1', '2026-03-01T10:00:00.000Z')
   })
 
@@ -188,7 +188,7 @@ describe('ArquivarTarefa', () => {
     const repositorio = criarTarefaRepositoryFake()
     repositorio.buscarPorId.mockResolvedValue(ARQUIVADA)
 
-    await expect(new ArquivarTarefa(repositorio).execute(USER_ID, 'tar-1')).resolves.toBe(ARQUIVADA)
+    await expect(new ArquivarTarefa(repositorio, criarSprintRepositoryFake()).execute(USER_ID, 'tar-1')).resolves.toBe(ARQUIVADA)
     expect(repositorio.definirArquivamento).not.toHaveBeenCalled()
   })
 
@@ -196,7 +196,7 @@ describe('ArquivarTarefa', () => {
     const repositorio = criarTarefaRepositoryFake()
     repositorio.buscarPorId.mockResolvedValue(null)
 
-    await expect(new ArquivarTarefa(repositorio).execute(USER_ID, 'x')).rejects.toBeInstanceOf(NotFoundError)
+    await expect(new ArquivarTarefa(repositorio, criarSprintRepositoryFake()).execute(USER_ID, 'x')).rejects.toBeInstanceOf(NotFoundError)
   })
 })
 
@@ -232,7 +232,7 @@ describe('RemoverTarefa', () => {
     repositorio.buscarPorId.mockResolvedValue(TAREFA)
     repositorio.remover.mockResolvedValue(undefined)
 
-    await new RemoverTarefa(repositorio, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1')
+    await new RemoverTarefa(repositorio, criarSuperTaskRepositoryFake(), criarSprintRepositoryFake()).execute(USER_ID, 'tar-1')
     expect(repositorio.remover).toHaveBeenCalledWith(USER_ID, 'tar-1')
   })
 
@@ -240,7 +240,7 @@ describe('RemoverTarefa', () => {
     const repositorio = criarTarefaRepositoryFake()
     repositorio.buscarPorId.mockResolvedValue(null)
 
-    await expect(new RemoverTarefa(repositorio, criarSuperTaskRepositoryFake()).execute(USER_ID, 'x')).rejects.toBeInstanceOf(NotFoundError)
+    await expect(new RemoverTarefa(repositorio, criarSuperTaskRepositoryFake(), criarSprintRepositoryFake()).execute(USER_ID, 'x')).rejects.toBeInstanceOf(NotFoundError)
     expect(repositorio.remover).not.toHaveBeenCalled()
   })
 })

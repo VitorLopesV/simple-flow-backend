@@ -336,8 +336,8 @@ describe('travas por dia: a virada 23:59 → 00:00 em São Paulo', () => {
       removerDoSprint: new RemoverTarefaDoSprint(tarefas).execute(USER_ID, 'tar-1', agora),
       mover: new MoverTarefaNoSprint(tarefas, sprints).execute(USER_ID, 'tar-1', '2026-11-20', agora),
       editar: new AtualizarTarefa(tarefas, sprints).execute(USER_ID, 'tar-1', edicaoDe(noSprint(alvo), { titulo: 'Outro' }), agora),
-      excluir: new RemoverTarefa(tarefas, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1', agora),
-      arquivar: new ArquivarTarefa(tarefas).execute(USER_ID, 'tar-1', agora),
+      excluir: new RemoverTarefa(tarefas, criarSuperTaskRepositoryFake(), sprints).execute(USER_ID, 'tar-1', agora),
+      arquivar: new ArquivarTarefa(tarefas, sprints).execute(USER_ID, 'tar-1', agora),
     }
     const entradas = await Promise.all(
       Object.entries(resultados).map(async ([chave, promessa]) => [chave, await promessa.then(() => 'ok', (erro: unknown) => erro)] as const),
@@ -376,7 +376,7 @@ describe('travas por dia: a virada 23:59 → 00:00 em São Paulo', () => {
   it('tarefa fora do sprint com dia passado continua livre (a trava é do compromisso do sprint)', async () => {
     const tarefas = criarTarefaRepositoryFake()
     tarefas.buscarPorId.mockResolvedValue({ ...COMPLETA, dia: alvo })
-    await expect(new RemoverTarefa(tarefas, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1', QUINTA_00H00)).resolves.toBeUndefined()
+    await expect(new RemoverTarefa(tarefas, criarSuperTaskRepositoryFake(), criarSprintRepositoryFake()).execute(USER_ID, 'tar-1', QUINTA_00H00)).resolves.toBeUndefined()
   })
 
   it('só o dia que passou trava: o de hoje e os futuros seguem editáveis', async () => {

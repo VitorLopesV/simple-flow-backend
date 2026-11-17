@@ -10,6 +10,7 @@ import { DesmarcarConclusaoTarefa } from '../../../application/use-cases/tarefas
 import { ListarTarefas } from '../../../application/use-cases/tarefas/ListarTarefas'
 import { MoverTarefa } from '../../../application/use-cases/tarefas/MoverTarefa'
 import { RemoverTarefa } from '../../../application/use-cases/tarefas/RemoverTarefa'
+import { reservaDeFechamento } from './reservaDeFechamento'
 import { SupabaseAreaRepository } from '../../../infrastructure/supabase/repositories/SupabaseAreaRepository'
 import { SupabaseOcorrenciaRotinaRepository } from '../../../infrastructure/supabase/repositories/SupabaseOcorrenciaRotinaRepository'
 import { SupabaseTarefasDoSprintRepository } from '../../../infrastructure/supabase/repositories/SupabaseTarefasDoSprintRepository'
@@ -93,7 +94,7 @@ export const tarefasController = {
   },
 
   async arquivar(req: Request, res: Response) {
-    res.json(await new ArquivarTarefa(tarefaRepositorio(req)).execute(req.usuario!.id, req.params.id))
+    res.json(await new ArquivarTarefa(tarefaRepositorio(req), sprintRepositorio(req), reservaDeFechamento(req)).execute(req.usuario!.id, req.params.id))
   },
 
   async desarquivar(req: Request, res: Response) {
@@ -101,7 +102,12 @@ export const tarefasController = {
   },
 
   async remover(req: Request, res: Response) {
-    await new RemoverTarefa(tarefaRepositorio(req), superTaskRepositorio(req)).execute(req.usuario!.id, req.params.id)
+    await new RemoverTarefa(
+      tarefaRepositorio(req),
+      superTaskRepositorio(req),
+      sprintRepositorio(req),
+      reservaDeFechamento(req),
+    ).execute(req.usuario!.id, req.params.id)
     res.status(204).send()
   },
 }

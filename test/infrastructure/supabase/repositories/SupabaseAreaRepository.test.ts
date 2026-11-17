@@ -133,6 +133,42 @@ describe('SupabaseAreaRepository', () => {
       await expect(repositorio.removerTarefas(USER_ID, ID)).rejects.toBe(ERRO)
     })
 
+    it('contarTarefasNoSprintAberto: conta só as tarefas cujo sprint está ABERTO, filtrando tudo por user_id', async () => {
+      const { fake, repositorio } = montar({
+        tarefas: [ok([{ sprint_id: 'a' }, { sprint_id: 'a' }, { sprint_id: 'b' }, { sprint_id: 'c' }])],
+        sprints: [ok([{ id: 'a' }, { id: 'c' }])],
+      })
+
+      await expect(repositorio.contarTarefasNoSprintAberto(USER_ID, ID)).resolves.toBe(3)
+      expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'area_id', ID])
+      expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+      expect(fake.consultas[0]!.chamadas).toContainEqual(['not', 'sprint_id', 'is', null])
+      expect(fake.consultas[1]!.tabela).toBe('sprints')
+      expect(fake.consultas[1]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+      expect(fake.consultas[1]!.chamadas).toContainEqual(['eq', 'situacao', 'ABERTO'])
+      expect(fake.consultas[1]!.chamadas).toContainEqual(['in', 'id', ['a', 'b', 'c']])
+    })
+
+    it('contarTarefasNoSprintAberto: sem tarefas em sprint vale 0, sem consultar sprints; tabela ausente vale 0', async () => {
+      const vazio = montar({ tarefas: [ok([])] })
+      await expect(vazio.repositorio.contarTarefasNoSprintAberto(USER_ID, ID)).resolves.toBe(0)
+      expect(vazio.fake.consultas).toHaveLength(1)
+
+      const ausente = montar({ tarefas: [falha({ code: 'PGRST205', message: 'sem tabela' })] })
+      await expect(ausente.repositorio.contarTarefasNoSprintAberto(USER_ID, ID)).resolves.toBe(0)
+    })
+
+    it('contarTarefasNoSprintAberto: sprints todos fechados vale 0; propaga erro de qualquer consulta', async () => {
+      const fechados = montar({ tarefas: [ok([{ sprint_id: 'a' }])], sprints: [ok([])] })
+      await expect(fechados.repositorio.contarTarefasNoSprintAberto(USER_ID, ID)).resolves.toBe(0)
+
+      const erroTarefas = montar({ tarefas: [falha(ERRO)] })
+      await expect(erroTarefas.repositorio.contarTarefasNoSprintAberto(USER_ID, ID)).rejects.toBe(ERRO)
+
+      const erroSprints = montar({ tarefas: [ok([{ sprint_id: 'a' }])], sprints: [falha(ERRO)] })
+      await expect(erroSprints.repositorio.contarTarefasNoSprintAberto(USER_ID, ID)).rejects.toBe(ERRO)
+    })
+
     it('contarTarefas: soma as Super tasks da área (também filtradas por user_id)', async () => {
       const { fake, repositorio } = montar({
         tarefas: [{ data: null, error: null, count: 4 } as never],

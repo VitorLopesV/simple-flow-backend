@@ -5,6 +5,7 @@ import type { Sprint } from '../entities/Sprint'
 export interface SprintRepository {
   /** Devolve o sprint da semana, criando-o se não existir (único por usuário e `inicio`, mesmo com acessos concorrentes). */
   garantir(userId: ID, inicio: string, fim: string): Promise<Sprint>
+  buscarPorId(userId: ID, id: ID): Promise<Sprint | null>
   marcarRotinaGerada(userId: ID, id: ID, quando: string): Promise<void>
   /** Sprints do usuário com fim até `ateFim` cujo fechamento ainda não foi aplicado por inteiro. */
   listarPendentesDeFechamento(userId: ID, ateFim: string): Promise<Sprint[]>

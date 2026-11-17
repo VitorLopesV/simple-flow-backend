@@ -5,6 +5,7 @@ import { CriarArea } from '../../../application/use-cases/areas/CriarArea'
 import { ListarAreas } from '../../../application/use-cases/areas/ListarAreas'
 import { RemoverArea } from '../../../application/use-cases/areas/RemoverArea'
 import type { DestinoDasTarefas } from '../../../domain/entities/Area'
+import { reservaDeFechamento } from './reservaDeFechamento'
 import { SupabaseAreaRepository } from '../../../infrastructure/supabase/repositories/SupabaseAreaRepository'
 
 function areaRepositorio(req: Request) {
@@ -35,7 +36,7 @@ export const areasController = {
   },
 
   async remover(req: Request, res: Response) {
-    await new RemoverArea(areaRepositorio(req)).execute(req.usuario!.id, req.params.id, destinoDasTarefas(req))
+    await new RemoverArea(areaRepositorio(req), reservaDeFechamento(req)).execute(req.usuario!.id, req.params.id, destinoDasTarefas(req))
     res.status(204).send()
   },
 }
