@@ -45,6 +45,18 @@ export class SupabaseSprintRepository implements SprintRepository {
     return paraSprint(data)
   }
 
+  async buscarPorId(userId: ID, id: ID): Promise<Sprint | null> {
+    const { data, error } = await this.supabase
+      .from('sprints')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (error) throw error
+    return data ? paraSprint(data) : null
+  }
+
   async marcarRotinaGerada(userId: ID, id: ID, quando: string): Promise<void> {
     const { error } = await this.supabase
       .from('sprints')

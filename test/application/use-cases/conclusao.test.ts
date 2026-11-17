@@ -153,8 +153,6 @@ describe('tarefa concluída é imutável', () => {
   const casos: [string, (t: ReturnType<typeof montarTarefa>) => Promise<unknown>][] = [
     ['editar', ({ tarefas, sprints }) => new AtualizarTarefa(tarefas, sprints).execute(USER_ID, 'tar-1', edicao, QUARTA)],
     ['mudar de área', ({ tarefas }) => new MoverTarefa(tarefas, criarAreaRepositoryFake()).execute(USER_ID, 'tar-1', 'area-2', QUARTA)],
-    ['excluir', ({ tarefas }) => new RemoverTarefa(tarefas, criarSuperTaskRepositoryFake()).execute(USER_ID, 'tar-1', QUARTA)],
-    ['arquivar', ({ tarefas }) => new ArquivarTarefa(tarefas).execute(USER_ID, 'tar-1', QUARTA)],
     ['tirar do sprint', ({ tarefas }) => new RemoverTarefaDoSprint(tarefas).execute(USER_ID, 'tar-1', QUARTA)],
     ['mudar o dia no sprint', ({ tarefas, sprints }) => new MoverTarefaNoSprint(tarefas, sprints).execute(USER_ID, 'tar-1', '2026-11-19', QUARTA)],
     ['adicionar ao sprint', ({ tarefas, sprints }) => new AdicionarTarefaAoSprint(tarefas, sprints).execute(USER_ID, 'tar-1', '2026-11-19', QUARTA)],
@@ -169,6 +167,19 @@ describe('tarefa concluída é imutável', () => {
     expect(montado.tarefas.remover).not.toHaveBeenCalled()
     expect(montado.tarefas.mover).not.toHaveBeenCalled()
     expect(montado.tarefas.definirSprint).not.toHaveBeenCalled()
+    expect(montado.tarefas.definirArquivamento).not.toHaveBeenCalled()
+  })
+
+  // #73 ajustou a #70: excluir e arquivar concluída só ficam recusados enquanto o sprint dela está aberto.
+  it.each([
+    ['excluir', ({ tarefas, sprints }: ReturnType<typeof montarTarefa>) => new RemoverTarefa(tarefas, criarSuperTaskRepositoryFake(), sprints).execute(USER_ID, 'tar-1', QUARTA)],
+    ['arquivar', ({ tarefas, sprints }: ReturnType<typeof montarTarefa>) => new ArquivarTarefa(tarefas, sprints).execute(USER_ID, 'tar-1', QUARTA)],
+  ])('%s é recusado com ConflictError enquanto o sprint está aberto e não grava nada', async (_nome, acao) => {
+    const montado = montarTarefa(CONCLUIDA)
+    montado.sprints.buscarPorId.mockResolvedValue({ id: 'spr-1', situacao: 'ABERTO' })
+
+    await expect(acao(montado)).rejects.toBeInstanceOf(ConflictError)
+    expect(montado.tarefas.remover).not.toHaveBeenCalled()
     expect(montado.tarefas.definirArquivamento).not.toHaveBeenCalled()
   })
 

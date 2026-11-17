@@ -62,6 +62,7 @@ export function criarAreaRepositoryFake() {
     atualizar: vi.fn(),
     remover: vi.fn(),
     contarTarefas: vi.fn(),
+    contarTarefasNoSprintAberto: vi.fn(),
     moverTarefas: vi.fn(),
     removerTarefas: vi.fn(),
   } satisfies AreaRepository
@@ -178,6 +179,7 @@ export function criarNavegacaoRepositoryFake() {
 export function criarSprintRepositoryFake() {
   return {
     garantir: vi.fn(),
+    buscarPorId: vi.fn(),
     marcarRotinaGerada: vi.fn(),
     listarPendentesDeFechamento: vi.fn(),
     fechar: vi.fn(),

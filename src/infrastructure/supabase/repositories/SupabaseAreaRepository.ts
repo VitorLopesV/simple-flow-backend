@@ -130,6 +130,37 @@ export class SupabaseAreaRepository implements AreaRepository {
     return (count ?? 0) + (superTasks.count ?? 0)
   }
 
+  async contarTarefasNoSprintAberto(userId: ID, areaId: ID): Promise<number> {
+    const { data, error } = await this.tarefas
+      .select('sprint_id')
+      .eq('area_id', areaId)
+      .eq('user_id', userId)
+      .not('sprint_id', 'is', null)
+
+    if (error) {
+      if (tabelaTarefasAusente(error)) return 0
+      throw error
+    }
+
+    const porSprint = new Map<string, number>()
+    for (const linha of data as { sprint_id: string }[]) {
+      porSprint.set(linha.sprint_id, (porSprint.get(linha.sprint_id) ?? 0) + 1)
+    }
+    if (porSprint.size === 0) return 0
+
+    // Depois do fechamento só as não concluídas saem do sprint; a concluída continua apontando para ele,
+    // então é a situação do sprint que diz se a tarefa ainda está "no sprint aberto".
+    const abertos = await this.supabase
+      .from('sprints')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('situacao', 'ABERTO')
+      .in('id', [...porSprint.keys()])
+
+    if (abertos.error) throw abertos.error
+    return abertos.data.reduce((total, sprint) => total + (porSprint.get(sprint.id) ?? 0), 0)
+  }
+
   async moverTarefas(userId: ID, deAreaId: ID, paraAreaId: ID): Promise<void> {
     const { error } = await this.tarefas
       .update({ area_id: paraAreaId })

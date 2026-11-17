@@ -19,6 +19,17 @@ const SPRINT = {
 }
 
 describe('SupabaseSprintRepository', () => {
+  it('buscarPorId: lê o sprint só do usuário; null quando não existe; propaga erro', async () => {
+    const fake = criarSupabaseFake({ sprints: [ok(linhaSprint({ situacao: 'FECHADO' })), ok(null), falha(ERRO)] })
+    const repositorio = new SupabaseSprintRepository(fake.client)
+
+    await expect(repositorio.buscarPorId(USER_ID, 'spr-1')).resolves.toMatchObject({ id: 'spr-1', situacao: 'FECHADO' })
+    await expect(repositorio.buscarPorId(USER_ID, 'x')).resolves.toBeNull()
+    await expect(repositorio.buscarPorId(USER_ID, 'x')).rejects.toBe(ERRO)
+    expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'id', 'spr-1'])
+    expect(fake.consultas[0]!.chamadas).toContainEqual(['eq', 'user_id', USER_ID])
+  })
+
   it('garantir: cria ignorando duplicata e lê o sprint do usuário na semana', async () => {
     const fake = criarSupabaseFake({ sprints: [ok(null), ok(linhaSprint())] })
 
