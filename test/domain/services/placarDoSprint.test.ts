@@ -12,7 +12,9 @@ const DIAS = ['2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-2
 function tarefa(extra: Partial<TarefaDoSprint> = {}): TarefaDoSprint {
   return {
     id: 't',
+    titulo: 'Tarefa',
     dia: '2026-11-17',
+    hora: null,
     tempoEstimado: 60,
     dificuldade: 'DIFICIL',
     prioridade: 'ALTA',

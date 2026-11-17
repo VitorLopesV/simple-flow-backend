@@ -14,6 +14,7 @@ const m = vi.hoisted(() => ({
   executeConcluirOcorrencia: vi.fn(),
   ConcluirTarefa: vi.fn(),
   FecharSprintsVencidos: vi.fn(),
+  RepositorioRecompensa: vi.fn(function (client: unknown) { return { repositorio: 'recompensa', client } }),
   RepositorioTarefasDoSprint: vi.fn(function (client: unknown) { return { repositorio: 'tarefasDoSprint', client } }),
   DesmarcarConclusaoTarefa: vi.fn(),
   ConcluirOcorrenciaRotina: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseSprintRepo
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseSuperTaskRepository', () => ({ SupabaseSuperTaskRepository: m.RepositorioSuperTask }))
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseOcorrenciaRotinaRepository', () => ({ SupabaseOcorrenciaRotinaRepository: m.RepositorioOcorrencia }))
 vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseTarefasDoSprintRepository', () => ({ SupabaseTarefasDoSprintRepository: m.RepositorioTarefasDoSprint }))
+vi.mock('../../../../src/infrastructure/supabase/repositories/SupabaseRecompensaPadraoRepository', () => ({ SupabaseRecompensaPadraoRepository: m.RepositorioRecompensa }))
 vi.mock('../../../../src/application/use-cases/sprints/FecharSprintsVencidos', () => ({ FecharSprintsVencidos: m.FecharSprintsVencidos }))
 vi.mock('../../../../src/application/use-cases/tarefas/ConcluirTarefa', () => ({ ConcluirTarefa: m.ConcluirTarefa }))
 vi.mock('../../../../src/application/use-cases/tarefas/DesmarcarConclusaoTarefa', () => ({ DesmarcarConclusaoTarefa: m.DesmarcarConclusaoTarefa }))
@@ -59,6 +61,7 @@ describe('controllers de conclusão', () => {
       m.RepositorioSprint.mock.results[0]!.value,
       m.RepositorioOcorrencia.mock.results[0]!.value,
       m.RepositorioTarefasDoSprint.mock.results[0]!.value,
+      m.RepositorioRecompensa.mock.results[0]!.value,
     )
     expect(m.RepositorioTarefasDoSprint).toHaveBeenCalledWith(req.supabase)
     expect(m.executeConcluirTarefa).toHaveBeenCalledWith(USUARIO.id, 't')

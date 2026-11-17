@@ -13,6 +13,7 @@ import { RemoverTarefa } from '../../../application/use-cases/tarefas/RemoverTar
 import { SupabaseAreaRepository } from '../../../infrastructure/supabase/repositories/SupabaseAreaRepository'
 import { SupabaseOcorrenciaRotinaRepository } from '../../../infrastructure/supabase/repositories/SupabaseOcorrenciaRotinaRepository'
 import { SupabaseTarefasDoSprintRepository } from '../../../infrastructure/supabase/repositories/SupabaseTarefasDoSprintRepository'
+import { SupabaseRecompensaPadraoRepository } from '../../../infrastructure/supabase/repositories/SupabaseRecompensaPadraoRepository'
 import { SupabaseSuperTaskRepository } from '../../../infrastructure/supabase/repositories/SupabaseSuperTaskRepository'
 import { SupabaseSprintRepository } from '../../../infrastructure/supabase/repositories/SupabaseSprintRepository'
 import { SupabaseTarefaRepository } from '../../../infrastructure/supabase/repositories/SupabaseTarefaRepository'
@@ -76,6 +77,7 @@ export const tarefasController = {
       sprintRepositorio(req),
       new SupabaseOcorrenciaRotinaRepository(req.supabase!),
       new SupabaseTarefasDoSprintRepository(req.supabase!),
+      new SupabaseRecompensaPadraoRepository(req.supabase!),
     )
     const concluir = new ConcluirTarefa(
       tarefaRepositorio(req),

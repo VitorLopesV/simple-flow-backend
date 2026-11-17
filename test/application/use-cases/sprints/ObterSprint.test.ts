@@ -28,7 +28,7 @@ const ITEM: ItemRotina = {
 }
 
 function sprint(inicio: string, fim: string, rotinaGeradaEm: string | null = null): Sprint {
-  return { id: `spr-${inicio}`, inicio, fim, situacao: 'ABERTO', rotinaGeradaEm, criadoEm: '2026-01-01T00:00:00.000Z', fechadoEm: null, foto: null, fechamentoAplicadoEm: null }
+  return { id: `spr-${inicio}`, inicio, fim, situacao: 'ABERTO', rotinaGeradaEm, criadoEm: '2026-01-01T00:00:00.000Z', recompensa: null, fechadoEm: null, foto: null, fechamentoAplicadoEm: null }
 }
 
 function gravada(sobrescritas: Partial<OcorrenciaRotina> = {}): OcorrenciaRotina {

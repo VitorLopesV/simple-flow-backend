@@ -216,6 +216,7 @@ export function linhaSprint(sobrescritas: Partial<SprintRow> = {}): SprintRow {
     rotina_gerada_em: null,
     fechado_em: null,
     foto: null,
+    recompensa: null,
     fechamento_aplicado_em: null,
     criado_em: '2026-01-01T00:00:00.000Z',
     atualizado_em: '2026-01-01T00:00:00.000Z',

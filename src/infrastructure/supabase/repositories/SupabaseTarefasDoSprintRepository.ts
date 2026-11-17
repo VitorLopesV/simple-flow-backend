@@ -18,7 +18,7 @@ export class SupabaseTarefasDoSprintRepository implements TarefasDoSprintReposit
   async listar(userId: ID, sprintId: ID, inicio: string, fim: string): Promise<TarefaDoSprint[]> {
     const { data, error } = await this.client
       .from('tarefas')
-      .select('id, dia, hora, tempo_estimado_minutos, dificuldade, prioridade, concluida_em')
+      .select('id, titulo, dia, hora, tempo_estimado_minutos, dificuldade, prioridade, concluida_em')
       .eq('user_id', userId)
       .eq('sprint_id', sprintId)
       .gte('dia', inicio)
@@ -32,7 +32,9 @@ export class SupabaseTarefasDoSprintRepository implements TarefasDoSprintReposit
       return [
         {
           id: row.id,
+          titulo: row.titulo,
           dia: row.dia,
+          hora: row.hora ? row.hora.slice(0, 5) : null,
           tempoEstimado: row.tempo_estimado_minutos as TempoEstimado,
           dificuldade: row.dificuldade as Dificuldade,
           prioridade: row.prioridade as Prioridade,

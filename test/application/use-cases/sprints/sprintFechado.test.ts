@@ -6,7 +6,7 @@ import { ObterPlacarDoSprint } from '../../../../src/application/use-cases/sprin
 import { ObterSprint } from '../../../../src/application/use-cases/sprints/ObterSprint'
 import { ConcluirTarefa } from '../../../../src/application/use-cases/tarefas/ConcluirTarefa'
 import type { OcorrenciaRotina } from '../../../../src/domain/entities/OcorrenciaRotina'
-import type { PlacarDoSprint } from '../../../../src/domain/entities/PlacarDoSprint'
+import type { FotoDoSprint } from '../../../../src/domain/entities/PlacarDoSprint'
 import type { Sprint } from '../../../../src/domain/entities/Sprint'
 import type { Tarefa } from '../../../../src/domain/entities/Tarefa'
 import { ConflictError, ValidationError } from '../../../../src/domain/errors/DomainError'
@@ -25,13 +25,15 @@ const SEXTA_2358 = new Date('2026-11-21T02:58:59Z')
 const SEXTA_2359 = new Date('2026-11-21T02:59:00Z')
 const SABADO_0000 = new Date('2026-11-21T03:00:00Z')
 
-const FOTO: PlacarDoSprint = {
+const FOTO: FotoDoSprint = {
   total: 300,
   feitos: 240,
   percentual: 80,
   bonus: false,
   rotina: { diasComRotina: 5, diasCumpridos: 5, pontosPorDia: 40, total: 200, feitos: 200 },
   tarefas: { quantidade: 5, concluidas: 2, total: 100, feitos: 40 },
+  recompensa: null,
+  detalhe: { tarefas: [], rotina: [] },
 }
 
 function sprint(sobrescritas: Partial<Sprint> = {}): Sprint {
@@ -42,6 +44,7 @@ function sprint(sobrescritas: Partial<Sprint> = {}): Sprint {
     situacao: 'ABERTO',
     rotinaGeradaEm: '2026-11-16T10:00:00.000Z',
     criadoEm: '2026-01-01T00:00:00.000Z',
+    recompensa: null,
     fechadoEm: null,
     foto: null,
     fechamentoAplicadoEm: null,

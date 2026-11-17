@@ -4,7 +4,7 @@ import { FecharSprintsVencidos } from '../../../../src/application/use-cases/spr
 import type { TarefaDoSprint } from '../../../../src/domain/entities/PlacarDoSprint'
 import type { Sprint } from '../../../../src/domain/entities/Sprint'
 import { pontosDaTarefa } from '../../../../src/domain/services/pontuacao'
-import { criarOcorrenciaRotinaRepositoryFake, criarSprintRepositoryFake } from '../../../helpers/repositoriosFake'
+import { criarOcorrenciaRotinaRepositoryFake, criarRecompensaPadraoRepositoryFake, criarSprintRepositoryFake } from '../../../helpers/repositoriosFake'
 
 const USER = 'u1'
 const SEXTA_2359 = new Date('2026-11-21T02:59:00Z') // sexta 23:59 SP
@@ -18,6 +18,7 @@ function sprint(sobrescritas: Partial<Sprint> = {}): Sprint {
     situacao: 'ABERTO',
     rotinaGeradaEm: '2026-11-16T10:00:00.000Z',
     criadoEm: '2026-01-01T00:00:00.000Z',
+    recompensa: null,
     fechadoEm: null,
     foto: null,
     fechamentoAplicadoEm: null,
@@ -36,14 +37,15 @@ function tarefa(
   prioridade: TarefaDoSprint['prioridade'],
   concluida: boolean,
 ): TarefaDoSprint {
-  return { id, dia: '2026-11-18', tempoEstimado: tempo, dificuldade, prioridade, concluida, atrasada: false, superTask: false }
+  return { id, titulo: `Tarefa ${id}`, dia: '2026-11-18', hora: null, tempoEstimado: tempo, dificuldade, prioridade, concluida, atrasada: false, superTask: false }
 }
 
 describe('FecharSprintsVencidos', () => {
   const sprints = criarSprintRepositoryFake()
   const ocorrencias = criarOcorrenciaRotinaRepositoryFake()
   const tarefas = { listar: vi.fn(), devolverNaoConcluidas: vi.fn() }
-  const caso = new FecharSprintsVencidos(sprints, ocorrencias as never, tarefas)
+  const padrao = criarRecompensaPadraoRepositoryFake()
+  const caso = new FecharSprintsVencidos(sprints, ocorrencias as never, tarefas, padrao)
 
   beforeEach(() => {
     vi.resetAllMocks()
@@ -54,6 +56,7 @@ describe('FecharSprintsVencidos', () => {
     ocorrencias.listarDoSprint.mockResolvedValue([])
     tarefas.listar.mockResolvedValue([])
     tarefas.devolverNaoConcluidas.mockResolvedValue(undefined)
+    padrao.obter.mockResolvedValue(null)
   })
 
   it('exemplo da issue: 300 pts no total e 240 feitos dão 80%, sem bônus', async () => {

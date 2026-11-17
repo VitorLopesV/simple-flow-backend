@@ -11,6 +11,7 @@ import type { FaturaRepository } from '../../src/domain/repositories/FaturaRepos
 import type { NavegacaoRepository } from '../../src/domain/repositories/NavegacaoRepository'
 import type { PerfilRepository } from '../../src/domain/repositories/PerfilRepository'
 import type { OcorrenciaRotinaRepository } from '../../src/domain/repositories/OcorrenciaRotinaRepository'
+import type { RecompensaPadraoRepository } from '../../src/domain/repositories/RecompensaPadraoRepository'
 import type { SprintRepository } from '../../src/domain/repositories/SprintRepository'
 import type { SaidaRepository } from '../../src/domain/repositories/SaidaRepository'
 import type { ItemRotinaRepository } from '../../src/domain/repositories/ItemRotinaRepository'
@@ -181,7 +182,13 @@ export function criarSprintRepositoryFake() {
     listarPendentesDeFechamento: vi.fn(),
     fechar: vi.fn(),
     marcarFechamentoAplicado: vi.fn(),
+    definirRecompensa: vi.fn(),
+    listarFechados: vi.fn(),
   } satisfies SprintRepository
+}
+
+export function criarRecompensaPadraoRepositoryFake() {
+  return { obter: vi.fn(), definir: vi.fn() } satisfies RecompensaPadraoRepository
 }
 
 export function criarOcorrenciaRotinaRepositoryFake() {

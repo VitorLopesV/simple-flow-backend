@@ -354,6 +354,7 @@ export type Database = {
           foto_url: string | null
           id: string
           nome: string | null
+          recompensa_padrao: string | null
           telefone: string | null
         }
         Insert: {
@@ -361,6 +362,7 @@ export type Database = {
           foto_url?: string | null
           id: string
           nome?: string | null
+          recompensa_padrao?: string | null
           telefone?: string | null
         }
         Update: {
@@ -368,6 +370,7 @@ export type Database = {
           foto_url?: string | null
           id?: string
           nome?: string | null
+          recompensa_padrao?: string | null
           telefone?: string | null
         }
         Relationships: []
@@ -466,6 +469,7 @@ export type Database = {
           foto: Json | null
           id: string
           inicio: string
+          recompensa: string | null
           rotina_gerada_em: string | null
           situacao: string
           user_id: string
@@ -479,6 +483,7 @@ export type Database = {
           foto?: Json | null
           id?: string
           inicio: string
+          recompensa?: string | null
           rotina_gerada_em?: string | null
           situacao?: string
           user_id: string
@@ -492,6 +497,7 @@ export type Database = {
           foto?: Json | null
           id?: string
           inicio?: string
+          recompensa?: string | null
           rotina_gerada_em?: string | null
           situacao?: string
           user_id?: string
