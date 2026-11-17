@@ -50,6 +50,7 @@ const m = vi.hoisted(() => {
     ]),
     dashboard: controller('dashboard', ['resumo']),
     home: controller('home', ['resumo']),
+    alertas: controller('alertas', ['listar']),
     navegacao: controller('navegacao', ['limites']),
     keepalive: controller('keepalive', ['verificar']),
   }
@@ -74,6 +75,7 @@ vi.mock('../../../../src/presentation/http/controllers/saidasController', () => 
 vi.mock('../../../../src/presentation/http/controllers/cartoesController', () => ({ cartoesController: m.cartoes }))
 vi.mock('../../../../src/presentation/http/controllers/dashboardController', () => ({ dashboardController: m.dashboard }))
 vi.mock('../../../../src/presentation/http/controllers/homeController', () => ({ homeController: m.home }))
+vi.mock('../../../../src/presentation/http/controllers/alertasController', () => ({ alertasController: m.alertas }))
 vi.mock('../../../../src/presentation/http/controllers/navegacaoController', () => ({ navegacaoController: m.navegacao }))
 vi.mock('../../../../src/presentation/http/controllers/keepaliveController', () => ({ keepaliveController: m.keepalive }))
 // O limite de competência roda de verdade (middleware + use-cases); só a consulta ao banco é trocada.
@@ -229,6 +231,7 @@ const ROTAS_PROTEGIDAS: Rota[] = [
   { metodo: 'GET', caminho: '/api/dashboard/resumo?competencia=2026-08', acao: 'dashboard.resumo' },
   { metodo: 'GET', caminho: '/api/dashboard/resumo?competencia=2026-01', acao: 'dashboard.resumo' },
   { metodo: 'GET', caminho: '/api/home/resumo', acao: 'home.resumo' },
+  { metodo: 'GET', caminho: '/api/alertas', acao: 'alertas.listar' },
   { metodo: 'GET', caminho: '/api/navegacao/limites', acao: 'navegacao.limites' },
 ]
 
@@ -338,7 +341,7 @@ const ENTRADAS_INVALIDAS: (Omit<Rota, 'acao'> & { mensagem?: string })[] = [
 ]
 
 const todasAsAcoes = () =>
-  [m.auth, m.categorias, m.entradas, m.saidas, m.cartoes, m.dashboard, m.home, m.navegacao, m.keepalive].flatMap(Object.values)
+  [m.auth, m.categorias, m.entradas, m.saidas, m.cartoes, m.dashboard, m.home, m.alertas, m.navegacao, m.keepalive].flatMap(Object.values)
 
 let servidor: Server
 let baseUrl: string
@@ -601,6 +604,7 @@ describe('rotas HTTP', () => {
       ['GET', `/api/faturas/${UUID}/pagar`],
       ['POST', '/api/dashboard/resumo?competencia=2026-08'],
       ['POST', '/api/home/resumo'],
+      ['POST', '/api/alertas'],
       ['DELETE', '/api/categorias'],
       ['GET', '/api/auth/login'],
       ['GET', '/api/inexistente'],
