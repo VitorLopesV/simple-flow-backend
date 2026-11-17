@@ -49,6 +49,7 @@ const m = vi.hoisted(() => {
       'removerTransacao',
     ]),
     dashboard: controller('dashboard', ['resumo']),
+    home: controller('home', ['resumo']),
     navegacao: controller('navegacao', ['limites']),
     keepalive: controller('keepalive', ['verificar']),
   }
@@ -72,6 +73,7 @@ vi.mock('../../../../src/presentation/http/controllers/entradasController', () =
 vi.mock('../../../../src/presentation/http/controllers/saidasController', () => ({ saidasController: m.saidas }))
 vi.mock('../../../../src/presentation/http/controllers/cartoesController', () => ({ cartoesController: m.cartoes }))
 vi.mock('../../../../src/presentation/http/controllers/dashboardController', () => ({ dashboardController: m.dashboard }))
+vi.mock('../../../../src/presentation/http/controllers/homeController', () => ({ homeController: m.home }))
 vi.mock('../../../../src/presentation/http/controllers/navegacaoController', () => ({ navegacaoController: m.navegacao }))
 vi.mock('../../../../src/presentation/http/controllers/keepaliveController', () => ({ keepaliveController: m.keepalive }))
 // O limite de competência roda de verdade (middleware + use-cases); só a consulta ao banco é trocada.
@@ -226,6 +228,7 @@ const ROTAS_PROTEGIDAS: Rota[] = [
   { metodo: 'PATCH', caminho: `/api/faturas/${UUID}/pagar`, acao: 'cartoes.pagarFatura' },
   { metodo: 'GET', caminho: '/api/dashboard/resumo?competencia=2026-08', acao: 'dashboard.resumo' },
   { metodo: 'GET', caminho: '/api/dashboard/resumo?competencia=2026-01', acao: 'dashboard.resumo' },
+  { metodo: 'GET', caminho: '/api/home/resumo', acao: 'home.resumo' },
   { metodo: 'GET', caminho: '/api/navegacao/limites', acao: 'navegacao.limites' },
 ]
 
@@ -335,7 +338,7 @@ const ENTRADAS_INVALIDAS: (Omit<Rota, 'acao'> & { mensagem?: string })[] = [
 ]
 
 const todasAsAcoes = () =>
-  [m.auth, m.categorias, m.entradas, m.saidas, m.cartoes, m.dashboard, m.navegacao, m.keepalive].flatMap(Object.values)
+  [m.auth, m.categorias, m.entradas, m.saidas, m.cartoes, m.dashboard, m.home, m.navegacao, m.keepalive].flatMap(Object.values)
 
 let servidor: Server
 let baseUrl: string
@@ -597,6 +600,7 @@ describe('rotas HTTP', () => {
       ['GET', `/api/cartoes/${UUID}`],
       ['GET', `/api/faturas/${UUID}/pagar`],
       ['POST', '/api/dashboard/resumo?competencia=2026-08'],
+      ['POST', '/api/home/resumo'],
       ['DELETE', '/api/categorias'],
       ['GET', '/api/auth/login'],
       ['GET', '/api/inexistente'],

@@ -4,6 +4,8 @@ import type { FiltroTarefas, Tarefa, TarefaEdicao, TarefaPayload } from '../enti
 export interface TarefaRepository {
   /** Mais recentes primeiro. */
   listar(userId: ID, filtro: FiltroTarefas): Promise<Tarefa[]>
+  /** Tarefas não arquivadas cujo `dia` é o informado (`YYYY-MM-DD`), concluídas ou não, sem ordem definida. */
+  listarDoDia(userId: ID, dia: string): Promise<Tarefa[]>
   buscarPorId(userId: ID, id: ID): Promise<Tarefa | null>
   /** `sprintId` entra na mesma escrita quando a criação já coloca a tarefa no sprint. */
   criar(userId: ID, payload: TarefaPayload, sprintId?: ID): Promise<Tarefa>
